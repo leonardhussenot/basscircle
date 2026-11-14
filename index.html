@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="BassCircle" />
+    <meta name="theme-color" content="#F4F2ED" />
+    <title>BassCircle</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <!-- MAIN MENU -->
+      <section id="view-menu" class="view is-active" aria-label="Main menu">
+        <header class="brand-bar">
+          <span class="brand-title">BassCircle</span>
+          <div class="header-pills">
+            <button
+              id="btn-menu-notation"
+              class="pill-btn"
+              type="button"
+              aria-label="Toggle note naming between Do Ré Mi and C D E"
+              title="Switch notation"
+            >
+              Do Ré Mi
+            </button>
+            <button
+              id="btn-menu-sound"
+              class="pill-icon-btn"
+              type="button"
+              aria-label="Toggle bass audio"
+              title="Toggle bass audio"
+            >
+              <svg class="icon-xs icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" />
+                <path d="M15.2 8.8a4.5 4.5 0 0 1 0 6.4" />
+                <path d="M18.2 6.2a8 8 0 0 1 0 11.6" />
+              </svg>
+              <svg class="icon-xs icon-sound-off is-gone" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" />
+                <path d="M16 9.5l5 5M21 9.5l-5 5" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="progress-card">
+          <div class="progress-header">
+            <span class="progress-label">Circle Mastery</span>
+            <span id="deck-count" class="deck-count">0 / 348</span>
+          </div>
+          <div class="progress-visuals">
+            <div class="mini-wheel-wrap" title="Mastery around the 12 Circle keys">
+              <svg
+                id="mini-wheel-svg"
+                viewBox="0 0 84 84"
+                role="img"
+                aria-label="12-key Circle of Fifths mastery ring"
+              ></svg>
+            </div>
+            <div class="curve-wrap" aria-label="Knowledge distribution">
+              <svg
+                id="knowledge-svg"
+                viewBox="0 0 240 76"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Distribution of drill mastery from low on the left to high on the right"
+              >
+                <defs>
+                  <linearGradient id="curve-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#1C1B19" stop-opacity="0.14" />
+                    <stop offset="100%" stop-color="#1C1B19" stop-opacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <line x1="6" y1="68" x2="234" y2="68" class="curve-baseline" />
+                <path id="curve-area" d="" fill="url(#curve-fill)" />
+                <path id="curve-line" d="" fill="none" class="curve-stroke" />
+              </svg>
+              <div class="curve-axis" aria-hidden="true">
+                <span>−</span>
+                <span>+</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav class="menu-actions" aria-label="Quiz modes and tools">
+          <!-- Hero Primary Action: Stratified Random Mix across all Circle quizzes -->
+          <button
+            id="btn-go-mixed"
+            class="btn btn-primary btn-hero"
+            type="button"
+            aria-label="Start random Circle of Fifths quiz"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" />
+              <circle cx="12" cy="3.5" r="1.5" fill="currentColor" stroke="none" />
+              <path
+                d="M10.3 9.2l5 2.8-5 2.8V9.2z"
+                fill="currentColor"
+                stroke="none"
+              />
+            </svg>
+            <span class="hero-label">Random Quiz</span>
+          </button>
+
+          <!-- 6 Focused Quiz Modes -->
+          <div class="mode-grid">
+            <button class="btn btn-mode" data-mode="notes" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" stroke-dasharray="2.5 3.2" />
+                <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
+                <path d="M9 14.5V9.2l6-1.2v5.3" />
+                <circle cx="7.8" cy="14.8" r="1.5" />
+                <circle cx="13.8" cy="13.6" r="1.5" />
+              </svg>
+              <span class="mode-name">Notes</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="degrees" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.2" stroke-dasharray="2.5 3.2" />
+                <path d="M10.8 9.5l1.5-1v7M10.5 15.5h3.6" />
+              </svg>
+              <span class="mode-name">Degrees</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="intervals" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="7" cy="16.5" r="2.3" />
+                <circle cx="17.5" cy="7.5" r="2.3" />
+                <path d="M8.8 14.6C10.5 10.5 12.8 8.8 15.2 8" />
+              </svg>
+              <span class="mode-name">Intervals</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="relatives" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="9.5" cy="12" r="5.5" />
+                <circle cx="14.5" cy="12" r="5.5" />
+              </svg>
+              <span class="mode-name">Relatives</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="bass" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon points="12,4 19,9.5 16,18.5 6.5,15.5" />
+              </svg>
+              <span class="mode-name">Grooves</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="fretboard" type="button">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.5" y="6" width="17" height="12" rx="2" />
+                <path d="M9 6v12M15 6v12M3.5 10h17M3.5 14h17" />
+                <circle cx="12" cy="10" r="1.9" fill="currentColor" stroke="none" />
+              </svg>
+              <span class="mode-name">Neck</span>
+            </button>
+          </div>
+
+          <!-- Explore & Theory Reference Row -->
+          <div class="menu-consult-grid">
+            <button
+              id="btn-go-explore"
+              class="btn btn-tile"
+              type="button"
+              aria-label="Interactive Circle and Bass Fretboard Explorer"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5" />
+                <polygon points="14.8,9.2 13,13 9.2,14.8 11,11" />
+              </svg>
+              <span class="tile-label">Explore</span>
+            </button>
+
+            <button
+              id="btn-go-theory"
+              class="btn btn-tile"
+              type="button"
+              aria-label="Circle of Fifths and Bass Theory Cheat Sheet"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 6.2C10.2 5 7.6 4.6 4.8 5.1A1 1 0 0 0 4 6.1v11.3a1 1 0 0 0 1.1 1c2.6-.3 5 .1 6.9 1.4 1.9-1.3 4.3-1.7 6.9-1.4a1 1 0 0 0 1.1-1V6.1a1 1 0 0 0-.8-1c-2.8-.5-5.4-.1-7.2 1.1z"
+                />
+                <path d="M12 6.2v13.6" />
+              </svg>
+              <span class="tile-label">Theory</span>
+            </button>
+          </div>
+        </nav>
+
+        <footer class="menu-footer">
+          <div id="menu-status" class="quiet-status" aria-live="polite"></div>
+          <div class="backup-links">
+            <button
+              id="btn-export"
+              class="icon-link"
+              type="button"
+              aria-label="Save backup to Files or iCloud"
+              title="Export progress backup"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 15.5V4.5M8 8.5l4-4 4 4" />
+                <path d="M4.5 16.5v2A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-2" />
+              </svg>
+            </button>
+            <button
+              id="btn-import"
+              class="icon-link"
+              type="button"
+              aria-label="Load backup file"
+              title="Import progress backup"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11M8 11.5l4 4 4-4" />
+                <path d="M4.5 16.5v2A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-2" />
+              </svg>
+            </button>
+            <button
+              id="btn-reset"
+              class="icon-link"
+              type="button"
+              aria-label="Reset learning progress"
+              title="Reset progress"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9" />
+                <path d="M4.5 4.5V9H9" />
+              </svg>
+            </button>
+            <button
+              id="btn-confirm-reset"
+              class="pill-danger-btn is-gone"
+              type="button"
+              aria-label="Confirm reset progress"
+            >
+              Confirm reset
+            </button>
+            <input
+              id="file-import"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            />
+          </div>
+        </footer>
+      </section>
+
+      <!-- QUIZ SESSION VIEW (ALL ANSWERS ON THE CIRCLE OF FIFTHS) -->
+      <section id="view-quiz" class="view" aria-label="Circle quiz session">
+        <header class="top-bar">
+          <button
+            class="back-btn"
+            data-go="menu"
+            type="button"
+            aria-label="Back to menu"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+
+          <div class="header-pills">
+            <button
+              id="btn-quiz-notation"
+              class="pill-btn"
+              type="button"
+              aria-label="Switch note naming"
+            >
+              Do Ré Mi
+            </button>
+            <button
+              id="btn-quiz-sound"
+              class="pill-icon-btn"
+              type="button"
+              aria-label="Toggle bass audio"
+            >
+              <svg class="icon-xs icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" />
+                <path d="M15.2 8.8a4.5 4.5 0 0 1 0 6.4" />
+              </svg>
+              <svg class="icon-xs icon-sound-off is-gone" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M11 5L6.5 9H3.5v6h3L11 19V5z" />
+                <path d="M16 9.5l5 5M21 9.5l-5 5" />
+              </svg>
+            </button>
+          </div>
+
+          <span id="quiz-counter" class="revise-counter">1 / 18</span>
+        </header>
+
+        <div class="quiz-prompt-card">
+          <div class="quiz-eyebrow-row">
+            <span id="quiz-eyebrow" class="quiz-eyebrow">CIRCLE QUIZ</span>
+            <div id="quiz-steps-row" class="quiz-steps-row"></div>
+          </div>
+          <p id="quiz-prompt" class="quiz-prompt"></p>
+          <div id="quiz-fretboard-wrap" class="quiz-fretboard-wrap is-gone"></div>
+        </div>
+
+        <div class="quiz-circle-stage">
+          <div id="quiz-circle-mount" class="circle-mount"></div>
+        </div>
+
+        <footer class="quiz-footer">
+          <div id="quiz-footer-active" class="quiz-footer-row">
+            <span id="quiz-live-hint" class="quiz-hint-text">Tap the Circle to answer</span>
+            <button
+              id="btn-reveal"
+              class="pill-btn pill-subtle"
+              type="button"
+              aria-label="Reveal answer on the Circle"
+            >
+              Show
+            </button>
+          </div>
+
+          <div id="quiz-footer-done" class="quiz-footer-done is-gone">
+            <p id="quiz-explanation" class="quiz-explanation"></p>
+            <button
+              id="btn-next-question"
+              class="btn btn-primary btn-next"
+              type="button"
+              aria-label="Next question"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- SESSION COMPLETE SUMMARY -->
+      <section id="view-complete" class="view" aria-label="Session summary">
+        <div class="complete-wrap">
+          <p id="complete-title" class="complete-title">18 drills</p>
+
+          <div class="summary-grid">
+            <div class="summary-item" aria-label="First-tap clean">
+              <span id="sum-well" class="summary-num">0</span>
+              <svg class="icon-sm summary-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5.5 12.5l4.2 4.2L18.5 8" />
+              </svg>
+            </div>
+            <div class="summary-item" aria-label="One hesitation or retry">
+              <span id="sum-approx" class="summary-num">0</span>
+              <svg class="icon-sm summary-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12.5c2-3.2 4.7-3.2 7 0s5 3.2 7 0" />
+              </svg>
+            </div>
+            <div class="summary-item" aria-label="Missed or revealed">
+              <span id="sum-not" class="summary-num">0</span>
+              <svg class="icon-sm summary-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 7l10 10M17 7L7 17" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="complete-actions">
+            <button
+              id="btn-again-session"
+              class="btn btn-primary"
+              type="button"
+              aria-label="Play another session"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9" />
+                <path d="M4.5 4.5V9H9" />
+              </svg>
+              <span>Again</span>
+            </button>
+
+            <button
+              id="btn-finish-session"
+              class="btn"
+              type="button"
+              aria-label="Back to menu"
+            >
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 14l-4-4 4-4" />
+                <path d="M5 10h10a4 4 0 0 1 0 8h-2" />
+              </svg>
+              <span>Menu</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- INTERACTIVE CIRCLE & BASS FRETBOARD EXPLORER -->
+      <section id="view-explore" class="view" aria-label="Circle and Bass Explorer">
+        <header class="top-bar">
+          <button
+            class="back-btn"
+            data-go="menu"
+            type="button"
+            aria-label="Back to menu"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+
+          <span id="explore-summary" class="explore-summary">Do · rel. La m</span>
+
+          <div class="header-pills">
+            <button
+              id="btn-explore-neck-mode"
+              class="pill-btn"
+              type="button"
+              title="Toggle fretboard labels between degrees and note names"
+            >
+              1·3·5
+            </button>
+            <button
+              id="btn-explore-notation"
+              class="pill-btn"
+              type="button"
+              title="Switch Do Ré Mi / C D E"
+            >
+              Do
+            </button>
+          </div>
+        </header>
+
+        <div id="explore-lens-bar" class="lens-bar" role="tablist" aria-label="Harmonic lens"></div>
+
+        <div class="explore-circle-stage">
+          <div id="explore-circle-mount" class="circle-mount"></div>
+        </div>
+
+        <div class="explore-neck-card">
+          <div class="explore-neck-header">
+            <span id="explore-lens-subtitle" class="explore-neck-sub">Tap Circle to set root · Tap fret to pluck</span>
+          </div>
+          <div id="explore-fretboard-mount"></div>
+        </div>
+      </section>
+
+      <!-- 5-PAGE CIRCLE & BASS THEORY CHEAT SHEET -->
+      <section id="view-theory" class="view" aria-label="Theory cheat sheet">
+        <header class="top-bar">
+          <button
+            class="back-btn"
+            data-go="menu"
+            type="button"
+            aria-label="Back to menu"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+          <span id="theory-page-title" class="grammar-page-title">Circle Geometry</span>
+          <span id="theory-counter" class="revise-counter">1 / 5</span>
+        </header>
+
+        <div id="theory-track" class="grammar-track"></div>
+
+        <footer class="grammar-nav" aria-label="Theory pages">
+          <button
+            id="btn-theory-prev"
+            class="icon-link"
+            type="button"
+            aria-label="Previous page"
+          >
+            <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
+          </button>
+          <div id="theory-dots" class="grammar-dots" role="tablist"></div>
+          <button
+            id="btn-theory-next"
+            class="icon-link"
+            type="button"
+            aria-label="Next page"
+          >
+            <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </footer>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
