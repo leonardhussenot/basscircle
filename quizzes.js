@@ -23,12 +23,12 @@ import { bassStaffStepToNote } from './staff.js';
 export const QUIZ_CATEGORIES = [
   { id: 'notes', label: 'Notes', desc: 'Blank circle notes & bilingual reflex' },
   { id: 'degrees', label: 'Degrees', desc: 'Blank circle 1–7 & chromatic degrees' },
-  { id: 'clef', label: 'Clé de Fa', desc: 'Read bass clef 𝄢 onto the Circle' },
-  { id: 'ear', label: 'Ear', desc: 'Hear bass intervals & walks on Circle' },
   { id: 'intervals', label: 'Intervals', desc: '3rd, ♭3, ♭7, chromatic & degree math' },
+  { id: 'clef', label: 'Clé de Fa', desc: 'Read bass clef 𝄢 onto the Circle' },
   { id: 'chords', label: 'Chords', desc: 'Constellations, slash chords & relatives' },
   { id: 'bass', label: 'Grooves', desc: 'Voice-leading, ii–V–I, stage bridge' },
-  { id: 'fretboard', label: 'Neck', desc: 'Bidirectional 4-string neck ↔ Circle' }
+  { id: 'fretboard', label: 'Neck → ○', desc: 'Read bass frets & shapes onto Circle' },
+  { id: 'neckplay', label: '○ → Neck', desc: 'Play Circle notes, chords & walks on neck' }
 ];
 
 function createRng(seed = Date.now()) {
@@ -237,37 +237,7 @@ export function buildCanonicalDeckDefinitions() {
   }
 
   // =========================================================================
-  // 4. EAR -> CIRCLE (Hear Bass Interval or Root Movement, Tap on Circle!)
-  // =========================================================================
-  for (const sym of ['5', '4', '3', '♭3', '♭7', '7', '6', '♭6', '♭5', '2', '♭2']) {
-    defs.push({
-      id: `ear_iv_${sym}`,
-      category: 'ear',
-      kind: 'ear_interval',
-      params: { symbol: sym }
-    });
-  }
-  const earWalks = [
-    { id: 'I_IV_V', seq: ['4', '5'], title: 'Classic 3-chord groove (1 → ? → ?)', explain: '1 → 4 (−1 CCW) → 5 (+1 CW).' },
-    { id: 'I_V_IV', seq: ['5', '4'], title: 'Rock turnaround (1 → ? → ?)', explain: '1 → 5 (+1 CW) → 4 (−1 CCW).' },
-    { id: 'I_bVII_IV', seq: ['♭7', '4'], title: 'Mixolydian rock/funk cadence (1 → ? → ?)', explain: '1 → ♭7 (−2 CCW) → 4 (−1 CCW).' },
-    { id: 'i_bVI_bVII', seq: ['♭6', '♭7'], title: 'Minor anthem walk (1 → ? → ?)', explain: '1 → ♭6 (−4 CCW) → ♭7 (−2 CCW).' },
-    { id: 'I_vi_IV_V', seq: ['6', '4', '5'], title: 'Soul progression (1 → ? → ? → ?)', explain: '1 → 6 (+3 CW) → 4 (−1 CCW) → 5 (+1 CW).' },
-    { id: 'I_ii_V', seq: ['2', '5'], title: 'Jazz setup (1 → ? → ?)', explain: '1 → 2 (+2 CW) → 5 (+1 CW).' },
-    { id: 'arp_dom7', seq: ['3', '5', '♭7'], title: 'Heard 7th arpeggio (1 → ? → ? → ?)', explain: 'Dom7: 1 → 3 (+4 CW) → 5 (+1 CW) → ♭7 (−2 CCW).' },
-    { id: 'arp_m7', seq: ['♭3', '5', '♭7'], title: 'Heard 7th arpeggio (1 → ? → ? → ?)', explain: 'Minor 7th: 1 → ♭3 (−3 CCW) → 5 (+1 CW) → ♭7 (−2 CCW).' }
-  ];
-  for (const w of earWalks) {
-    defs.push({
-      id: `ear_walk_${w.id}`,
-      category: 'ear',
-      kind: 'ear_walk',
-      params: w
-    });
-  }
-
-  // =========================================================================
-  // 5. INTERVALS, CHROMATIC BASS APPROACHES & DEGREE HARMONY (Trimmed Fat!)
+  // 4. INTERVALS, CHROMATIC BASS APPROACHES & DEGREE HARMONY (Trimmed Fat!)
   // =========================================================================
   // High-value non-trivial intervals across all 12 keys (3, ♭3, ♭7, 7, ♭5, plus curated 6/♭6/4/5)
   for (let pos = 0; pos < 12; pos++) {
@@ -515,14 +485,14 @@ export function buildCanonicalDeckDefinitions() {
   }
 
   // =========================================================================
-  // 8. NECK (Bidirectional: Neck -> Circle AND Circle -> All 4 Bass Strings!)
+  // 7. NECK -> CIRCLE (Read Frets, Fret-to-Harmony & 2-Dot Hand Shapes!)
   // =========================================================================
-  // 8A. Forward: Fretboard Dot -> Note on Circle
+  // 7A. Fretboard Dot -> Note on Circle
   const neckPositions = [
-    [0, 1], [0, 4], [0, 6], [0, 8], [0, 11],
-    [1, 1], [1, 3], [1, 6], [1, 8], [1, 11],
-    [2, 1], [2, 4], [2, 6], [2, 8],
-    [3, 1], [3, 3], [3, 6], [3, 8]
+    [0, 1], [0, 3], [0, 4], [0, 6], [0, 8], [0, 11],
+    [1, 1], [1, 3], [1, 4], [1, 6], [1, 8], [1, 11],
+    [2, 1], [2, 3], [2, 4], [2, 6], [2, 8],
+    [3, 1], [3, 3], [3, 4], [3, 6], [3, 8]
   ];
   for (const [sIdx, fret] of neckPositions) {
     defs.push({
@@ -533,7 +503,7 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 8B. Forward: Fretboard Dot -> Harmonic Interval on Circle
+  // 7B. Fretboard Dot -> Harmonic Interval on Circle
   const neckIntervalDrills = [
     { stringIndex: 0, fret: 5, symbol: '3' },
     { stringIndex: 0, fret: 6, symbol: '♭7' },
@@ -553,21 +523,95 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 8C. Reverse: Circle Note (or Harmonic Target!) -> Find across ALL 4 Bass Strings!
+  // 7C. 2-Dot Bass Hand Shape on Neck -> Tap its Degree on the Circle!
+  const neckShapes = [
+    { rStr: 0, rFret: 5, tStr: 1, tFret: 4, sym: '3', desc: '+1 string, −1 fret = Major 3rd (3)' },
+    { rStr: 1, rFret: 6, tStr: 2, tFret: 5, sym: '3', desc: '+1 string, −1 fret = Major 3rd (3)' },
+    { rStr: 0, rFret: 5, tStr: 1, tFret: 3, sym: '♭3', desc: '+1 string, −2 frets = Minor 3rd (♭3)' },
+    { rStr: 1, rFret: 7, tStr: 2, tFret: 5, sym: '♭3', desc: '+1 string, −2 frets = Minor 3rd (♭3)' },
+    { rStr: 0, rFret: 3, tStr: 1, tFret: 5, sym: '5', desc: '+1 string, +2 frets = Power 5th (5)' },
+    { rStr: 1, rFret: 5, tStr: 0, tFret: 5, sym: '5', desc: '1 string lower, same fret = 5th below (degree 5!)' },
+    { rStr: 2, rFret: 5, tStr: 1, tFret: 5, sym: '5', desc: '1 string lower, same fret = 5th below (degree 5!)' },
+    { rStr: 0, rFret: 5, tStr: 1, tFret: 5, sym: '4', desc: '+1 string, same fret = Perfect 4th (4)' },
+    { rStr: 1, rFret: 5, tStr: 2, tFret: 6, sym: '♭5', desc: '+1 string, +1 fret = Tritone (♭5)' },
+    { rStr: 0, rFret: 5, tStr: 2, tFret: 5, sym: '♭7', desc: '+2 strings, same fret = Minor 7th (♭7)' },
+    { rStr: 1, rFret: 6, tStr: 3, tFret: 6, sym: '♭7', desc: '+2 strings, same fret = Minor 7th (♭7)' },
+    { rStr: 0, rFret: 5, tStr: 2, tFret: 6, sym: '7', desc: '+2 strings, +1 fret = Major 7th (7)' },
+    { rStr: 1, rFret: 5, tStr: 3, tFret: 4, sym: '6', desc: '+2 strings, −1 fret = Major 6th / Dorian (6)' },
+    { rStr: 1, rFret: 5, tStr: 3, tFret: 3, sym: '♭6', desc: '+2 strings, −2 frets = Minor 6th (♭6)' }
+  ];
+  neckShapes.forEach((sh, idx) => {
+    defs.push({
+      id: `neck_shape_${idx}`,
+      category: 'fretboard',
+      kind: 'neck_shape_to_degree',
+      params: sh
+    });
+  });
+
+  // =========================================================================
+  // 8. CIRCLE -> NECK (All-4-Strings, Play Arpeggios & Walks on Fretboard!)
+  // =========================================================================
+  // 8A. Find Circle Note across ALL 4 Bass Strings
   for (let pos = 0; pos < 12; pos++) {
     defs.push({
-      id: `neck_all4_pos_${pos}`,
-      category: 'fretboard',
+      id: `neckplay_all4_pos_${pos}`,
+      category: 'neckplay',
       kind: 'circle_to_all_strings',
       params: { targetPos: pos, harmonicFrom: null }
     });
   }
-  for (const [rootPos, sym] of [[0, '♭3'], [1, '3'], [10, '3'], [11, '♭7'], [9, '5'], [2, '♭3']]) {
+  // 8B. Find Harmonic Target from Circle across ALL 4 Bass Strings
+  for (const [rootPos, sym] of [
+    [0, '♭3'], [1, '3'], [10, '3'], [11, '♭7'], [9, '5'], [2, '♭3'], [3, '6'], [8, '3']
+  ]) {
     defs.push({
-      id: `neck_all4_iv_${rootPos}_${sym}`,
-      category: 'fretboard',
+      id: `neckplay_all4_iv_${rootPos}_${sym}`,
+      category: 'neckplay',
       kind: 'circle_to_all_strings',
       params: { targetPos: mod(rootPos + INTERVALS[sym].circleOffset, 12), harmonicFrom: { rootPos, sym } }
+    });
+  }
+
+  // 8C. Play 7th Arpeggios (1 -> 3/♭3 -> 5 -> 7/♭7) directly on the Fretboard + Circle!
+  const neckArps = [
+    { rootPos: 0, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },
+    { rootPos: 2, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },
+    { rootPos: 1, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },
+    { rootPos: 11, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },
+    { rootPos: 0, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },
+    { rootPos: 1, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },
+    { rootPos: 10, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },
+    { rootPos: 11, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },
+    { rootPos: 9, quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'] },
+    { rootPos: 8, quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'] },
+    { rootPos: 0, quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'] },
+    { rootPos: 5, quality: 'm7♭5', suffix: 'm7♭5', degrees: ['1', '♭3', '♭5', '♭7'] }
+  ];
+  neckArps.forEach((na, idx) => {
+    defs.push({
+      id: `neckplay_arp_${idx}`,
+      category: 'neckplay',
+      kind: 'circle_to_neck_seq',
+      params: { mode: 'arp', ...na }
+    });
+  });
+
+  // 8D. Walk ii -> V -> I & I -> IV -> V directly on the Fretboard + Circle!
+  for (const keyPos of [0, 1, 9, 10, 11, 2]) {
+    defs.push({
+      id: `neckplay_iiVI_${keyPos}`,
+      category: 'neckplay',
+      kind: 'circle_to_neck_seq',
+      params: { mode: 'ii-V-I', rootPos: keyPos }
+    });
+  }
+  for (const keyPos of [0, 1, 3, 4, 10]) {
+    defs.push({
+      id: `neckplay_I_IV_V_${keyPos}`,
+      category: 'neckplay',
+      kind: 'circle_to_neck_seq',
+      params: { mode: 'I-IV-V', rootPos: keyPos }
     });
   }
 
@@ -1093,88 +1137,7 @@ export function instantiateQuiz(
   }
 
   // -------------------------------------------------------------------------
-  // 4. EAR -> CIRCLE (Hear Bass Movement, Tap on Circle!)
-  // -------------------------------------------------------------------------
-  if (kind === 'ear_interval') {
-    const { symbol } = params;
-    const iv = INTERVALS[symbol];
-    const rootPos = Math.floor(rand() * 12);
-    const targetPos = mod(rootPos + iv.circleOffset, 12);
-    const rootMidi = 34 + Math.floor(rand() * 8);
-    const targetMidi = rootMidi + iv.semitones;
-    const nodes = makeBlankDegreeNodes(rootPos);
-    const stepDelta = formatCircleStepDelta(iv.circleOffset);
-
-    return {
-      id: card.id,
-      category: 'ear',
-      answerSurface: 'circle',
-      eyebrow: 'EAR → CIRCLE · INTERVAL',
-      promptHtml: `Listen to <b>1 → ?</b> · tap the degree you heard`,
-      staff: null,
-      fretboard: null,
-      audioPromptMidis: [rootMidi, targetMidi],
-      audioStepSec: 0.44,
-      nodes,
-      steps: [
-        {
-          targetPos,
-          centerLabel: '▶ Hear',
-          centerSub: 'Tap hub to replay',
-          stepChipLabel: '?',
-          revealedPrimary: symbol,
-          revealedSub: iv.name,
-          midiToPlay: targetMidi
-        }
-      ],
-      geometry: { type: 'arc', fromPos: rootPos, toPos: targetPos },
-      doneCenterPrimary: symbol,
-      doneCenterSub: iv.name,
-      explanation: `You heard ${iv.name} (${symbol}) — ${stepDelta} from 1.`
-    };
-  }
-
-  if (kind === 'ear_walk') {
-    const { seq, title, explain } = params;
-    const rootPos = Math.floor(rand() * 12);
-    const rootMidi = 35 + Math.floor(rand() * 6);
-    const nodes = makeBlankDegreeNodes(rootPos);
-
-    const promptMidis = [rootMidi, ...seq.map((sym) => rootMidi + INTERVALS[sym].semitones)];
-    const steps = seq.map((sym, idx) => {
-      const iv = INTERVALS[sym];
-      return {
-        targetPos: mod(rootPos + iv.circleOffset, 12),
-        centerLabel: '▶ Hear',
-        centerSub: `Note ${idx + 2} of ${seq.length + 1}`,
-        stepChipLabel: `?${idx + 1}`,
-        revealedPrimary: sym,
-        revealedSub: '',
-        midiToPlay: rootMidi + iv.semitones
-      };
-    });
-
-    return {
-      id: card.id,
-      category: 'ear',
-      answerSurface: 'circle',
-      eyebrow: 'EAR → CIRCLE · BASS LINE',
-      promptHtml: `Hear <b>${title}</b>`,
-      staff: null,
-      fretboard: null,
-      audioPromptMidis: promptMidis,
-      audioStepSec: 0.38,
-      nodes,
-      steps,
-      geometry: { type: 'walk', positions: [rootPos, ...steps.map((s) => s.targetPos)] },
-      doneCenterPrimary: `1→${seq.join('→')}`,
-      doneCenterSub: 'Ear locked!',
-      explanation: explain
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // 5. INTERVALS, CHROMATIC APPROACHES & DEGREE HARMONY
+  // 4. INTERVALS, CHROMATIC APPROACHES & DEGREE HARMONY
   // -------------------------------------------------------------------------
   if (kind === 'interval_of_note') {
     const { rootPos, symbol } = params;
@@ -2121,7 +2084,7 @@ export function instantiateQuiz(
 
     return {
       id: card.id,
-      category: 'fretboard',
+      category: 'neckplay',
       answerSurface: 'fretboard',
       targetPos,
       targetPc,
@@ -2145,6 +2108,169 @@ export function instantiateQuiz(
       doneCenterPrimary: targetName,
       doneCenterSub: '4 / 4 strings',
       explanation: `${targetName} across the 4 strings: ${fretSummary}.`
+    };
+  }
+
+  // 7C. 2-Dot Bass Hand Shape on Neck -> Tap its Degree on the Circle!
+  if (kind === 'neck_shape_to_degree') {
+    const { rStr, rFret, tStr, tFret, sym, desc } = params;
+    const iv = INTERVALS[sym];
+    const wheelRootPos = Math.floor(rand() * 12);
+    const targetPos = mod(wheelRootPos + iv.circleOffset, 12);
+    const nodes = makeLabeledDegreeNodes(wheelRootPos, null, isBlind);
+    const targetInfo = getBassFretInfo(tStr, tFret);
+
+    return {
+      id: card.id,
+      category: 'fretboard',
+      answerSurface: 'circle',
+      eyebrow: 'NECK SHAPE → CIRCLE DEGREE',
+      promptHtml: `Relative to <b>1</b>, what degree is <b>?</b> — tap on Circle`,
+      staff: null,
+      fretboard: {
+        mode: 'shape',
+        root: { stringIndex: rStr, fret: rFret },
+        target: { stringIndex: tStr, fret: tFret, revealedLabel: sym }
+      },
+      nodes,
+      steps: [
+        {
+          targetPos,
+          centerLabel: '?',
+          centerSub: 'from 1',
+          stepChipLabel: sym,
+          revealedPrimary: sym,
+          revealedSub: iv.name,
+          midiToPlay: targetInfo.midi
+        }
+      ],
+      geometry: { type: 'arc', fromPos: wheelRootPos, toPos: targetPos },
+      doneCenterPrimary: sym,
+      doneCenterSub: iv.name,
+      explanation: `${desc} → ${formatCircleStepDelta(iv.circleOffset)} on the Circle.`
+    };
+  }
+
+  // 8C/8D. Play Arpeggio or Bass Walk directly on the 4-String Fretboard + Circle!
+  if (kind === 'circle_to_neck_seq') {
+    const { mode, rootPos, suffix = '', degrees = [] } = params;
+
+    let stepSpecs = [];
+    let promptHtml = '';
+    let eyebrow = '';
+    let geoType = 'polygon';
+    let donePrimary = '';
+
+    if (mode === 'arp') {
+      const rootSpelled = chooseBestRootSpelling(rootPos, degrees);
+      const chordName = formatChord(rootSpelled, suffix, notation);
+      eyebrow = 'CIRCLE → NECK · ARPEGGIO';
+      promptHtml = `Play <b>${chordName}</b> on the bass neck`;
+      geoType = 'polygon';
+      donePrimary = chordName;
+
+      stepSpecs = degrees.map((degSym) => {
+        const sp = spellInterval(rootSpelled, degSym);
+        return {
+          chip: degSym,
+          badge: degSym,
+          spelled: sp,
+          noteName: formatSpelledNote(sp, notation)
+        };
+      });
+    } else {
+      const seq =
+        mode === 'ii-V-I'
+          ? [
+              { deg: '2', roman: 'ii' },
+              { deg: '5', roman: 'V' },
+              { deg: '1', roman: 'I' }
+            ]
+          : [
+              { deg: '1', roman: 'I' },
+              { deg: '4', roman: 'IV' },
+              { deg: '5', roman: 'V' }
+            ];
+      const rootSpelled = chooseBestRootSpelling(
+        rootPos,
+        seq.map((x) => x.deg)
+      );
+      const keyName = formatSpelledNote(rootSpelled, notation);
+      eyebrow = 'CIRCLE → NECK · BASS WALK';
+      promptHtml = `Walk <b>${mode.replace(/-/g, ' → ')}</b> in <b>${keyName}</b> on the neck`;
+      geoType = 'walk';
+      donePrimary = `${keyName} ${mode}`;
+
+      stepSpecs = seq.map((it) => {
+        const sp = spellInterval(rootSpelled, it.deg);
+        return {
+          chip: it.roman,
+          badge: it.roman,
+          spelled: sp,
+          noteName: formatSpelledNote(sp, notation)
+        };
+      });
+    }
+
+    const highlightMap = {};
+    if (!isBlind) {
+      highlightMap[rootPos] = {
+        mode: 'anchor',
+        primary: getCanonicalNoteName(rootPos, notation),
+        subBadge: '1'
+      };
+    }
+    const nodes = makeNoteWheelNodes(notation, { isBlind, highlightMap });
+
+    // Pick a comfortable mid-neck reference fret (frets 1..7) per step for `Show` reveal
+    const steps = stepSpecs.map((item, idx) => {
+      const pc = item.spelled.pc;
+      const prefStr = Math.min(3, Math.floor((idx * 4) / stepSpecs.length));
+      let bestStr = prefStr;
+      let bestFret = mod(pc - BASS_STRINGS[prefStr].pc, 12);
+      for (const s of [0, 1, 2, 3]) {
+        const f = mod(pc - BASS_STRINGS[s].pc, 12);
+        if (f >= 1 && f <= 7) {
+          bestStr = s;
+          bestFret = f;
+          if (s >= Math.min(2, idx)) break;
+        }
+      }
+      return {
+        targetPos: item.spelled.pos,
+        targetPc: pc,
+        centerLabel: item.chip,
+        centerSub: 'Tap on neck',
+        stepChipLabel: item.chip,
+        revealedPrimary: item.noteName,
+        revealedSub: item.badge,
+        demoString: bestStr,
+        demoFret: bestFret,
+        midiToPlay: BASS_STRINGS[bestStr].openMidi + bestFret
+      };
+    });
+
+    const noteTrail = steps.map((s) => s.revealedPrimary).join(' → ');
+
+    return {
+      id: card.id,
+      category: 'neckplay',
+      answerSurface: 'fretboard_seq',
+      eyebrow,
+      promptHtml,
+      staff: null,
+      fretboard: {
+        mode: 'seq'
+      },
+      nodes,
+      steps,
+      geometry: {
+        type: geoType,
+        positions: steps.map((s) => s.targetPos)
+      },
+      doneCenterPrimary: donePrimary,
+      doneCenterSub: 'Neck + Circle!',
+      explanation: `${donePrimary}: ${noteTrail}.`
     };
   }
 

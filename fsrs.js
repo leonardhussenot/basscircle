@@ -182,7 +182,7 @@ function selectFromPool(pool, count, now) {
  */
 export function buildQuizSession(
   allCards,
-  { category = null, sessionSize = 16, includeEar = true, now = Date.now() } = {}
+  { category = null, sessionSize = 16, now = Date.now() } = {}
 ) {
   if (!allCards.length) return [];
 
@@ -191,9 +191,16 @@ export function buildQuizSession(
     return shuffle(selectFromPool(filtered, sessionSize, now));
   }
 
-  const categories = includeEar
-    ? ['notes', 'degrees', 'clef', 'ear', 'intervals', 'chords', 'bass', 'fretboard']
-    : ['notes', 'degrees', 'clef', 'intervals', 'chords', 'bass', 'fretboard'];
+  const categories = [
+    'notes',
+    'degrees',
+    'intervals',
+    'clef',
+    'chords',
+    'bass',
+    'fretboard',
+    'neckplay'
+  ];
 
   const perCatBase = Math.floor(sessionSize / categories.length);
   let remainder = sessionSize - perCatBase * categories.length;
@@ -213,9 +220,8 @@ export function buildQuizSession(
     }
   }
 
-  const eligiblePool = includeEar ? allCards : allCards.filter((c) => c.category !== 'ear');
-  if (selected.length < Math.min(sessionSize, eligiblePool.length)) {
-    const leftover = eligiblePool.filter((c) => !usedIds.has(c.id));
+  if (selected.length < Math.min(sessionSize, allCards.length)) {
+    const leftover = allCards.filter((c) => !usedIds.has(c.id));
     const fill = selectFromPool(leftover, sessionSize - selected.length, now);
     selected.push(...fill);
   }

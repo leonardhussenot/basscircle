@@ -531,6 +531,7 @@ export function renderBassFretboard(
   {
     notation = 'solfege',
     singleDot = null,
+    twoDots = null, // { root: { stringIndex, fret }, target: { stringIndex, fret, revealedLabel? } }
     interactiveQuiz = null,
     activeMap = null,
     onTapFret = null
@@ -620,6 +621,10 @@ export function renderBassFretboard(
   // Fret number markers along bottom
   const numberedFrets = new Set(isTall ? [1, 3, 5, 7, 9, 12] : [3, 5, 7, 9, 12]);
   if (singleDot && singleDot.fret > 0) numberedFrets.add(singleDot.fret);
+  if (twoDots) {
+    if (twoDots.root.fret > 0) numberedFrets.add(twoDots.root.fret);
+    if (twoDots.target.fret > 0) numberedFrets.add(twoDots.target.fret);
+  }
   for (const f of numberedFrets) {
     const x = nutX + (f - 0.5) * fretSpan;
     const isTargetFret = singleDot && singleDot.fret === f;
@@ -708,6 +713,88 @@ export function renderBassFretboard(
     });
     qMark.textContent = singleDot.revealedLabel || '?';
     svg.appendChild(qMark);
+  }
+
+  // Mode 1b: Two-Dot Interval Shape on Neck (Root '1' + Target '?' -> Tap Degree on Circle!)
+  if (twoDots) {
+    const rY = rowY[twoDots.root.stringIndex];
+    const rX =
+      twoDots.root.fret === 0
+        ? nutX - 11
+        : nutX + (twoDots.root.fret - 0.5) * fretSpan;
+    const tY = rowY[twoDots.target.stringIndex];
+    const tX =
+      twoDots.target.fret === 0
+        ? nutX - 11
+        : nutX + (twoDots.target.fret - 0.5) * fretSpan;
+
+    // Subtle connecting line between Root '1' and '?'
+    svg.appendChild(
+      svgEl('line', {
+        x1: rX.toFixed(1),
+        y1: String(rY),
+        x2: tX.toFixed(1),
+        y2: String(tY),
+        stroke: '#1C1B19',
+        'stroke-width': '1.6',
+        'stroke-dasharray': '3 3',
+        opacity: '0.45'
+      })
+    );
+
+    // Root '1' badge (warm sand fill + ink border)
+    svg.appendChild(
+      svgEl('circle', {
+        cx: rX.toFixed(1),
+        cy: String(rY),
+        r: '7.6',
+        fill: '#F2E9D9',
+        stroke: '#1C1B19',
+        'stroke-width': '1.7'
+      })
+    );
+    svg.appendChild(
+      Object.assign(
+        svgEl('text', {
+          x: rX.toFixed(1),
+          y: String(rY),
+          class: 'fb-note-label',
+          'text-anchor': 'middle',
+          'dominant-baseline': 'central'
+        }),
+        { textContent: '1' }
+      )
+    );
+
+    // Target '?' dot
+    svg.appendChild(
+      svgEl('circle', {
+        cx: tX.toFixed(1),
+        cy: String(tY),
+        r: '10.2',
+        class: 'fb-dot-halo'
+      })
+    );
+    svg.appendChild(
+      svgEl('circle', {
+        cx: tX.toFixed(1),
+        cy: String(tY),
+        r: '7.6',
+        class: twoDots.target.revealedLabel ? 'fb-dot-found' : 'fb-dot-quiz'
+      })
+    );
+    svg.appendChild(
+      Object.assign(
+        svgEl('text', {
+          x: tX.toFixed(1),
+          y: String(tY),
+          class: 'fb-dot-text',
+          'text-anchor': 'middle',
+          'dominant-baseline': 'central'
+        }),
+        { textContent: twoDots.target.revealedLabel || '?' }
+      )
+    );
   }
 
   // Mode 2: Interactive Reverse Quiz (Circle -> Tap all 4 Bass Strings!)

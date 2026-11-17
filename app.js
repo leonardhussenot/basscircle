@@ -122,7 +122,7 @@ const btnTheoryNext = document.getElementById('btn-theory-next');
 
 // --- APP STATE ---
 let allCards = [];
-let settings = { notation: 'solfege', blindMode: 'auto', sound: true };
+let settings = { notation: 'solfege', blindMode: 'auto', sound: false };
 let activeView = 'menu';
 let statusTimer = null;
 let resetConfirmTimer = null;
@@ -437,20 +437,31 @@ function renderQuizMedia() {
     return;
   }
 
-  // 2. 4-String Bass Fretboard (Forward singleDot OR Reverse all4 interactive)
+  // 2. 4-String Bass Fretboard (singleDot, two-dot shape, all4, or sequential neck play)
   if (currentSpec.fretboard) {
     quizMediaWrapEl.classList.remove('is-gone');
-    if (currentSpec.fretboard.mode === 'all4') {
+    if (currentSpec.fretboard.mode === 'all4' || currentSpec.fretboard.mode === 'seq') {
       renderBassFretboard(quizMediaWrapEl, {
         notation: settings.notation,
         interactiveQuiz: {
-          foundFrets: foundFretsList.map((it) => ({
-            ...it,
-            label: currentSpec.targetName
-          })),
+          foundFrets: foundFretsList,
           wrongCell: neckWrongCell
         },
-        onTapFret: (cell) => handleReverseNeckTap(cell)
+        onTapFret: (cell) =>
+          currentSpec.fretboard.mode === 'seq'
+            ? handleSeqNeckTap(cell)
+            : handleReverseNeckTap(cell)
+      });
+    } else if (currentSpec.fretboard.mode === 'shape') {
+      renderBassFretboard(quizMediaWrapEl, {
+        notation: settings.notation,
+        twoDots: {
+          root: currentSpec.fretboard.root,
+          target: {
+            ...currentSpec.fretboard.target,
+            revealedLabel: isQuestionDone ? currentSpec.fretboard.target.revealedLabel : null
+          }
+        }
       });
     } else {
       renderBassFretboard(quizMediaWrapEl, {
@@ -482,11 +493,6 @@ function renderQuizPromptHeader() {
   quizPromptEl.innerHTML = currentSpec.promptHtml;
   renderStepChips();
   renderQuizMedia();
-}
-
-function playCurrentEarPrompt() {
-  if (!currentSpec?.audioPromptMidis) return;
-  playBassSequence(currentSpec.audioPromptMidis, currentSpec.audioStepSec || 0.42);
 }
 
 function loadCurrentQuizQuestion() {
@@ -524,27 +530,29 @@ function loadCurrentQuizQuestion() {
   if (currentSpec.answerSurface === 'fretboard') {
     quizCircle.setHub('0 / 4', 'Tap 4 strings', { interactive: false, done: false });
     quizLiveHintEl.textContent = 'Tap all 4 strings on the bass neck above';
-  } else {
+  } else if (currentSpec.answerSurface === 'fretboard_seq') {
     const firstStep = currentSpec.steps[0];
-    const isEar = Boolean(currentSpec.audioPromptMidis);
     quizCircle.setHub(firstStep.centerLabel, firstStep.centerSub, {
-      interactive: isEar,
+      interactive: false,
       done: false
     });
-    quizLiveHintEl.textContent = isEar
-      ? 'Tap center hub to replay · tap Circle to answer'
-      : currentSpec.steps.length > 1
-      ? `Tap ${firstStep.centerLabel} on the Circle`
-      : 'Tap the Circle to answer';
+    quizLiveHintEl.textContent = `Tap ${firstStep.centerLabel} on the bass neck above`;
+  } else {
+    const firstStep = currentSpec.steps[0];
+    quizCircle.setHub(firstStep.centerLabel, firstStep.centerSub, {
+      interactive: false,
+      done: false
+    });
+    quizLiveHintEl.textContent =
+      currentSpec.steps.length > 1
+        ? `Tap ${firstStep.centerLabel} on the Circle`
+        : 'Tap the Circle to answer';
   }
 
   quizFooterActiveEl.classList.remove('is-gone');
   quizFooterDoneEl.classList.add('is-gone');
 
-  // Auto-play audio cues on Ear drills and Forward Fretboard drills
-  if (currentSpec.audioPromptMidis) {
-    playCurrentEarPrompt();
-  } else if (currentSpec.fretboard?.mode === 'single') {
+  if (currentSpec.fretboard?.mode === 'single') {
     const info = getBassFretInfo(
       currentSpec.fretboard.stringIndex,
       currentSpec.fretboard.fret
@@ -561,6 +569,20 @@ function rerenderCurrentQuizSettings() {
     blindMode: settings.blindMode
   });
   currentSpec = updatedSpec;
+
+  // Update labels inside foundFretsList when switching Do Ré Mi <-> C D E
+  if (updatedSpec.answerSurface === 'fretboard') {
+    foundFretsList = foundFretsList.map((it) => ({
+      ...it,
+      label: updatedSpec.targetName
+    }));
+  } else if (updatedSpec.answerSurface === 'fretboard_seq') {
+    foundFretsList = foundFretsList.map((it, idx) => ({
+      ...it,
+      label: updatedSpec.steps[idx]?.revealedPrimary || it.label
+    }));
+  }
+
   renderQuizPromptHeader();
 
   currentNodesState = updatedSpec.nodes.map((baseNode, pos) => {
@@ -616,7 +638,7 @@ function rerenderCurrentQuizSettings() {
   } else {
     const step = updatedSpec.steps[currentStepIndex];
     quizCircle.setHub(step.centerLabel, step.centerSub, {
-      interactive: Boolean(updatedSpec.audioPromptMidis),
+      interactive: false,
       done: false
     });
   }
@@ -751,6 +773,71 @@ function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
   }
 }
 
+function handleSeqNeckTap({ stringIndex, fret, midi, pc }) {
+  unlockAudio();
+  if (!currentSpec || currentSpec.answerSurface !== 'fretboard_seq') return;
+  if (isQuestionDone) {
+    advanceToNextQuestion();
+    return;
+  }
+
+  const step = currentSpec.steps[currentStepIndex];
+  if (!step) return;
+
+  if (pc === step.targetPc) {
+    neckWrongCell = null;
+    foundFretsList.push({
+      stringIndex,
+      fret,
+      label: step.revealedPrimary
+    });
+
+    const isLast = currentStepIndex === currentSpec.steps.length - 1;
+    const base = currentNodesState[step.targetPos];
+    currentNodesState[step.targetPos] = {
+      ...base,
+      mode: isLast ? 'correct' : 'placed',
+      primary: step.revealedPrimary,
+      secondary: '',
+      subBadge: step.revealedSub || base.subBadge
+    };
+    quizCircle.updateSingleNode(step.targetPos, currentNodesState[step.targetPos]);
+    quizCircle.pulseNode(step.targetPos);
+    playBassNote(midi, { duration: 0.52 });
+
+    currentStepIndex += 1;
+    renderStepChips();
+    renderQuizMedia();
+
+    if (currentStepIndex >= currentSpec.steps.length) {
+      completeCurrentQuestion();
+    } else {
+      const nextStep = currentSpec.steps[currentStepIndex];
+      quizCircle.setHub(nextStep.centerLabel, nextStep.centerSub, {
+        interactive: false,
+        done: false
+      });
+      quizLiveHintEl.textContent = `Next on neck: ${nextStep.centerLabel}`;
+    }
+  } else {
+    mistakesOnCurrent += 1;
+    playMutedThud();
+    const tappedNote = getCanonicalNoteName(pitchClassToPos(pc), settings.notation);
+    neckWrongCell = { stringIndex, fret, label: tappedNote };
+    renderQuizMedia();
+    quizLiveHintEl.textContent = `That fret is ${tappedNote} — find ${step.centerLabel}`;
+
+    if (neckWrongTimer) clearTimeout(neckWrongTimer);
+    neckWrongTimer = setTimeout(() => {
+      neckWrongTimer = null;
+      neckWrongCell = null;
+      if (!isQuestionDone && activeView === 'quiz') {
+        renderQuizMedia();
+      }
+    }, 520);
+  }
+}
+
 function handleQuizCircleTap(pos) {
   unlockAudio();
   if (!currentSpec) return;
@@ -760,13 +847,8 @@ function handleQuizCircleTap(pos) {
     return;
   }
 
-  // If this is a Circle -> All 4 Strings fretboard drill, tapping the highlighted Circle node plucks its reference pitch
-  if (currentSpec.answerSurface === 'fretboard') {
-    if (pos === currentSpec.targetPos) {
-      playBassNote(36 + currentSpec.targetPc, { duration: 0.5 });
-      quizCircle.pulseNode(pos);
-    }
-    quizLiveHintEl.textContent = 'Tap the 4 strings on the bass neck above!';
+  if (currentSpec.answerSurface === 'fretboard' || currentSpec.answerSurface === 'fretboard_seq') {
+    quizLiveHintEl.textContent = 'Tap the bass fretboard above to play this drill!';
     return;
   }
 
@@ -802,7 +884,7 @@ function handleQuizCircleTap(pos) {
       if (currentSpec.staff) renderQuizMedia();
       const nextStep = currentSpec.steps[currentStepIndex];
       quizCircle.setHub(nextStep.centerLabel, nextStep.centerSub, {
-        interactive: Boolean(currentSpec.audioPromptMidis),
+        interactive: false,
         done: false
       });
       quizLiveHintEl.textContent = `Next: tap ${nextStep.centerLabel}`;
@@ -825,10 +907,6 @@ function handleQuizHubTap() {
   unlockAudio();
   if (isQuestionDone) {
     advanceToNextQuestion();
-    return;
-  }
-  if (currentSpec?.audioPromptMidis) {
-    playCurrentEarPrompt();
   }
 }
 
@@ -856,6 +934,33 @@ function handleRevealAnswer() {
       currentSpec.canonicalFrets.map((cf) => cf.midi),
       0.13
     );
+    completeCurrentQuestion();
+    return;
+  }
+
+  if (currentSpec.answerSurface === 'fretboard_seq') {
+    const remainingMidis = [];
+    for (let i = currentStepIndex; i < currentSpec.steps.length; i++) {
+      const step = currentSpec.steps[i];
+      const isLast = i === currentSpec.steps.length - 1;
+      foundFretsList.push({
+        stringIndex: step.demoString,
+        fret: step.demoFret,
+        label: step.revealedPrimary
+      });
+      const base = currentNodesState[step.targetPos];
+      currentNodesState[step.targetPos] = {
+        ...base,
+        mode: isLast ? 'correct' : 'placed',
+        primary: step.revealedPrimary,
+        secondary: '',
+        subBadge: step.revealedSub || base.subBadge
+      };
+      remainingMidis.push(step.midiToPlay);
+    }
+    currentStepIndex = currentSpec.steps.length;
+    quizCircle.setNodes(currentNodesState);
+    playBassSequence(remainingMidis, 0.13);
     completeCurrentQuestion();
     return;
   }
@@ -912,12 +1017,6 @@ function finishQuizSession() {
 
 async function startQuizSession(category = null) {
   unlockAudio();
-  // If user explicitly chooses the Ear mode while muted, turn sound on so they can hear!
-  if (category === 'ear' && !settings.sound) {
-    settings = await saveSettings({ sound: true });
-    syncSettingsUI();
-  }
-
   allCards = await syncDeckAndGetAllCards();
   activeSessionCategory = category;
 
@@ -925,7 +1024,6 @@ async function startQuizSession(category = null) {
   sessionQueue = buildQuizSession(allCards, {
     category,
     sessionSize,
-    includeEar: settings.sound,
     now: Date.now()
   });
 

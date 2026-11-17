@@ -155,7 +155,7 @@ export async function getSettings() {
   const defaults = {
     notation: 'solfege', // 'solfege' (Do Ré Mi) | 'letter' (C D E)
     blindMode: 'auto',   // 'auto' (FSRS progressive blind) | 'blind' (always blind) | 'labels' (always labeled)
-    sound: true
+    sound: false
   };
   try {
     const db = await openDB();
