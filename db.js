@@ -154,6 +154,7 @@ export async function resetAllProgress() {
 export async function getSettings() {
   const defaults = {
     notation: 'solfege', // 'solfege' (Do Ré Mi) | 'letter' (C D E)
+    blindMode: 'auto',   // 'auto' (FSRS progressive blind) | 'blind' (always blind) | 'labels' (always labeled)
     sound: true
   };
   try {
@@ -250,6 +251,9 @@ export async function importBackupPayload(payload) {
     const s = {};
     if (payload.settings.notation === 'solfege' || payload.settings.notation === 'letter') {
       s.notation = payload.settings.notation;
+    }
+    if (['auto', 'blind', 'labels'].includes(payload.settings.blindMode)) {
+      s.blindMode = payload.settings.blindMode;
     }
     if (typeof payload.settings.sound === 'boolean') {
       s.sound = payload.settings.sound;

@@ -177,12 +177,13 @@ function selectFromPool(pool, count, now) {
 
 /**
  * Builds a randomized quiz session.
- * - If `category` is null ('mixed'), stratifies across all 6 categories so every session
- *   blends blank-circle notes, blank-circle degrees, intervals/degree-harmony, relatives,
- *   bass grooves/arpeggios, and fretboard-to-circle drills.
+ * - If `category` is null ('mixed'), stratifies across all 8 categories (or 7 if `includeEar === false`).
  * - If `category` is specified, draws `sessionSize` drills from that category.
  */
-export function buildQuizSession(allCards, { category = null, sessionSize = 18, now = Date.now() } = {}) {
+export function buildQuizSession(
+  allCards,
+  { category = null, sessionSize = 16, includeEar = true, now = Date.now() } = {}
+) {
   if (!allCards.length) return [];
 
   if (category) {
@@ -190,8 +191,10 @@ export function buildQuizSession(allCards, { category = null, sessionSize = 18, 
     return shuffle(selectFromPool(filtered, sessionSize, now));
   }
 
-  // Stratified Mixed Session across all 6 categories (default 18 cards = 3 from each of 6!)
-  const categories = ['notes', 'degrees', 'intervals', 'relatives', 'bass', 'fretboard'];
+  const categories = includeEar
+    ? ['notes', 'degrees', 'clef', 'ear', 'intervals', 'chords', 'bass', 'fretboard']
+    : ['notes', 'degrees', 'clef', 'intervals', 'chords', 'bass', 'fretboard'];
+
   const perCatBase = Math.floor(sessionSize / categories.length);
   let remainder = sessionSize - perCatBase * categories.length;
   const catOrder = shuffle(categories);
@@ -210,8 +213,9 @@ export function buildQuizSession(allCards, { category = null, sessionSize = 18, 
     }
   }
 
-  if (selected.length < Math.min(sessionSize, allCards.length)) {
-    const leftover = allCards.filter((c) => !usedIds.has(c.id));
+  const eligiblePool = includeEar ? allCards : allCards.filter((c) => c.category !== 'ear');
+  if (selected.length < Math.min(sessionSize, eligiblePool.length)) {
+    const leftover = eligiblePool.filter((c) => !usedIds.has(c.id));
     const fill = selectFromPool(leftover, sessionSize - selected.length, now);
     selected.push(...fill);
   }

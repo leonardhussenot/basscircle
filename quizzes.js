@@ -1,6 +1,7 @@
-// Complete Circle-of-Fifths & Bassist Quiz Curriculum + Dynamic Question Generator
+// BassCircle v2 — Complete 8-Mode Circle of Fifths, Clé de Fa, Ear & Bass Harmony Curriculum
 
 import {
+  BASS_STRINGS,
   CIRCLE_POSITIONS,
   INTERVALS,
   OFFSET_TO_DEGREE,
@@ -17,13 +18,17 @@ import {
   formatCircleStepDelta
 } from './theory.js';
 
+import { bassStaffStepToNote } from './staff.js';
+
 export const QUIZ_CATEGORIES = [
-  { id: 'notes', label: 'Notes', desc: 'Place notes on blank circle' },
-  { id: 'degrees', label: 'Degrees', desc: 'Place 1–7 & flats on blank circle' },
-  { id: 'intervals', label: 'Intervals', desc: '3rd, ♭3, 5th, ♭7 of note or degree' },
-  { id: 'relatives', label: 'Relatives', desc: 'Relative minor/major & key sigs' },
-  { id: 'bass', label: 'Grooves', desc: 'm7, Dom7, ii–V–I, tritone & penta' },
-  { id: 'fretboard', label: 'Neck', desc: '4-string bass fretboard ↔ circle' }
+  { id: 'notes', label: 'Notes', desc: 'Blank circle notes & bilingual reflex' },
+  { id: 'degrees', label: 'Degrees', desc: 'Blank circle 1–7 & chromatic degrees' },
+  { id: 'clef', label: 'Clé de Fa', desc: 'Read bass clef 𝄢 onto the Circle' },
+  { id: 'ear', label: 'Ear', desc: 'Hear bass intervals & walks on Circle' },
+  { id: 'intervals', label: 'Intervals', desc: '3rd, ♭3, ♭7, chromatic & degree math' },
+  { id: 'chords', label: 'Chords', desc: 'Constellations, slash chords & relatives' },
+  { id: 'bass', label: 'Grooves', desc: 'Voice-leading, ii–V–I, stage bridge' },
+  { id: 'fretboard', label: 'Neck', desc: 'Bidirectional 4-string neck ↔ Circle' }
 ];
 
 function createRng(seed = Date.now()) {
@@ -54,32 +59,46 @@ function bassMidiForPos(pos, baseMidi = 36) {
   return baseMidi + diff;
 }
 
+function oppositeNotation(notation) {
+  return notation === 'letter' ? 'solfege' : 'letter';
+}
+
 /**
- * Builds the canonical deck definition (~255 cards).
- * Each entry has `{ id, category, kind, params }`.
+ * Builds the canonical v2 curriculum (~330 high-density, trimmed-fat cards across 8 modes).
  */
 export function buildCanonicalDeckDefinitions() {
   const defs = [];
 
-  // --- 1. NOTES ON BLANK CIRCLE ---
-  // 1A. Spot-place each of the 11 non-Do positions with Do anchored at 12:00
+  // =========================================================================
+  // 1. NOTES (Blank Circle Notes + Bilingual Do Ré Mi <-> C D E Stage Reflex)
+  // =========================================================================
   for (let pos = 1; pos <= 11; pos++) {
     defs.push({
       id: `notes_spot_${pos}`,
       category: 'notes',
       kind: 'note_spot',
-      params: { targetPos: pos, preferFlat: pos === 6 ? false : false }
+      params: { targetPos: pos, preferFlat: false, crossNotation: false }
     });
   }
   defs.push({
     id: 'notes_spot_6_flat',
     category: 'notes',
     kind: 'note_spot',
-    params: { targetPos: 6, preferFlat: true }
+    params: { targetPos: 6, preferFlat: true, crossNotation: false }
   });
 
-  // 1B. Rotated single-note anchor: 1 note shown at `anchorPos`, place 4 other notes
-  for (let anchorPos = 0; anchorPos < 12; anchorPos++) {
+  // Bilingual Stage Reflex on Blank Circle: prompt in Anglo when Circle is Solfège (and vice versa!)
+  for (const [pos, flat] of [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [8, true], [9, true], [10, true], [11, false]]) {
+    defs.push({
+      id: `notes_bilingual_${pos}`,
+      category: 'notes',
+      kind: 'note_spot',
+      params: { targetPos: pos, preferFlat: flat, crossNotation: true }
+    });
+  }
+
+  // Rotated single-note anchors (place 4 notes relative to any non-12h anchor)
+  for (const anchorPos of [1, 3, 4, 6, 8, 9, 10, 11]) {
     defs.push({
       id: `notes_quad_${anchorPos}`,
       category: 'notes',
@@ -88,18 +107,18 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 1C. Sweeps: sharp side, flat side, clockwise 5ths, counter-clockwise 4ths, full shuffled
+  // Full & half sweeps
   defs.push(
     { id: 'notes_sweep_sharps', category: 'notes', kind: 'note_sweep', params: { mode: 'sharps' } },
     { id: 'notes_sweep_flats', category: 'notes', kind: 'note_sweep', params: { mode: 'flats' } },
     { id: 'notes_sweep_fifths', category: 'notes', kind: 'note_sweep', params: { mode: 'fifths' } },
     { id: 'notes_sweep_fourths', category: 'notes', kind: 'note_sweep', params: { mode: 'fourths' } },
-    { id: 'notes_sweep_full_shuf', category: 'notes', kind: 'note_sweep', params: { mode: 'random8' } },
     { id: 'notes_sweep_all12', category: 'notes', kind: 'note_sweep', params: { mode: 'all12' } }
   );
 
-  // --- 2. NUMERIC DEGREES ON BLANK CIRCLE ---
-  // 2A. Single degree snipe around a randomly rotated `1`
+  // =========================================================================
+  // 2. DEGREES (Blank Circle Numeric Degrees around randomly rotated `1`)
+  // =========================================================================
   const degreeTargets = ['5', '4', '2', '6', '3', '7', '♭7', '♭3', '♭6', '♭2', '♭5', '♯4'];
   for (const sym of degreeTargets) {
     defs.push({
@@ -109,8 +128,7 @@ export function buildCanonicalDeckDefinitions() {
       params: { symbol: sym, showName: true }
     });
   }
-  // Pure numeric symbol snipes (no interval hint word) for key degrees
-  for (const sym of ['3', '♭3', '4', '5', '6', '♭7', '7', '♭5']) {
+  for (const sym of ['3', '♭3', '4', '5', '6', '♭7', '7', '♭5', '♭2', '♭6']) {
     defs.push({
       id: `deg_pure_${sym}`,
       category: 'degrees',
@@ -119,26 +137,141 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 2B. Multi-degree scale & chord sweeps on blank circle around random `1`
   defs.push(
     { id: 'deg_fill_maj_order', category: 'degrees', kind: 'deg_multi', params: { preset: 'maj_order' } },
     { id: 'deg_fill_maj_shuf', category: 'degrees', kind: 'deg_multi', params: { preset: 'maj_shuf' } },
-    { id: 'deg_fill_min_order', category: 'degrees', kind: 'deg_multi', params: { preset: 'min_order' } },
     { id: 'deg_fill_min_shuf', category: 'degrees', kind: 'deg_multi', params: { preset: 'min_shuf' } },
+    { id: 'deg_fill_dorian', category: 'degrees', kind: 'deg_multi', params: { preset: 'dorian' } },
     { id: 'deg_fill_dom7', category: 'degrees', kind: 'deg_multi', params: { preset: 'dom7' } },
     { id: 'deg_fill_m7', category: 'degrees', kind: 'deg_multi', params: { preset: 'm7' } },
     { id: 'deg_fill_maj7', category: 'degrees', kind: 'deg_multi', params: { preset: 'maj7' } },
     { id: 'deg_fill_penta_min', category: 'degrees', kind: 'deg_multi', params: { preset: 'penta_min' } },
     { id: 'deg_fill_blues', category: 'degrees', kind: 'deg_multi', params: { preset: 'blues' } },
-    { id: 'deg_fill_dorian', category: 'degrees', kind: 'deg_multi', params: { preset: 'dorian' } },
     { id: 'deg_fill_chromatic12', category: 'degrees', kind: 'deg_multi', params: { preset: 'chromatic12' } }
   );
 
-  // --- 3. INTERVALS OF A NOTE & INTERVALS OF A DEGREE ---
-  // 3A. Interval of a given Note across all 12 positions
-  const coreNoteIntervals = ['3', '♭3', '5', '4', '♭7', '7', '6', '♭5'];
+  // =========================================================================
+  // 3. CLÉ DE FA (𝄢 Bass Clef Sight-Reading -> Circle of Fifths)
+  // =========================================================================
+  // 3A. Core Landmarks (Open bass strings + Fa clef line + Do4 Clé d'Ut bridge!)
+  const clefLandmarks = [
+    { step: 6, hint: '4th line · between the 𝄢 dots (Clé de Fa anchor!)', highlightFa: true },
+    { step: 10, hint: '1st ledger above · Middle C (your Clé d’Ut reference!)', highlightFa: false },
+    { step: -2, hint: '1st ledger below · Open low Mi / E string', highlightFa: false },
+    { step: 1, hint: '1st space · Open La / A string', highlightFa: false },
+    { step: 4, hint: 'Middle line (3rd) · Open Ré / D string', highlightFa: false },
+    { step: 7, hint: 'Top space (4th) · Open Sol / G string', highlightFa: false }
+  ];
+  for (const lm of clefLandmarks) {
+    defs.push({
+      id: `clef_landmark_s${lm.step}`,
+      category: 'clef',
+      kind: 'clef_single',
+      params: { step: lm.step, acc: 0, landmarkHint: lm.hint, highlightFa: lm.highlightFa }
+    });
+  }
+
+  // 3B. Full 4-string Bass Range Naturals (steps -2 through +12)
+  for (let step = -2; step <= 12; step++) {
+    defs.push({
+      id: `clef_nat_s${step}`,
+      category: 'clef',
+      kind: 'clef_single',
+      params: { step, acc: 0, landmarkHint: '', highlightFa: false }
+    });
+  }
+
+  // 3C. Engraved Inline Accidentals (♯ & ♭) on Clé de Fa
+  const clefAccidentals = [
+    [-1, 1], [0, 1], [2, -1], [3, 1], [4, -1], [5, -1],
+    [6, 1], [7, 1], [8, -1], [9, -1], [10, 1], [11, -1]
+  ];
+  for (const [step, acc] of clefAccidentals) {
+    defs.push({
+      id: `clef_acc_s${step}_${acc > 0 ? 'sharp' : 'flat'}`,
+      category: 'clef',
+      kind: 'clef_single',
+      params: { step, acc, landmarkHint: '', highlightFa: false }
+    });
+  }
+
+  // 3D. Real Sheet-Music Key Signature Sight-Reading (note affected by clef key signature!)
+  const clefInKeyDrills = [
+    { step: 6, acc: 1, keySig: { count: 1, sign: '♯' }, keyLabelPos: 1 },  // Sol maj: Fa -> Fa♯
+    { step: -1, acc: 1, keySig: { count: 1, sign: '♯' }, keyLabelPos: 1 }, // Low Fa -> Fa♯
+    { step: 3, acc: 1, keySig: { count: 2, sign: '♯' }, keyLabelPos: 2 },  // Ré maj: Do -> Do♯
+    { step: 10, acc: 1, keySig: { count: 2, sign: '♯' }, keyLabelPos: 2 }, // High Do -> Do♯
+    { step: 7, acc: 1, keySig: { count: 3, sign: '♯' }, keyLabelPos: 3 },  // La maj: Sol -> Sol♯
+    { step: 2, acc: -1, keySig: { count: 1, sign: '♭' }, keyLabelPos: 11 }, // Fa maj: Si -> Si♭
+    { step: 9, acc: -1, keySig: { count: 1, sign: '♭' }, keyLabelPos: 11 }, // High Si -> Si♭
+    { step: 5, acc: -1, keySig: { count: 2, sign: '♭' }, keyLabelPos: 10 }, // Si♭ maj: Mi -> Mi♭
+    { step: 1, acc: -1, keySig: { count: 3, sign: '♭' }, keyLabelPos: 9 },  // Mi♭ maj: La -> La♭
+    { step: 8, acc: -1, keySig: { count: 3, sign: '♭' }, keyLabelPos: 9 },  // High La -> La♭
+    { step: 4, acc: -1, keySig: { count: 4, sign: '♭' }, keyLabelPos: 8 }   // La♭ maj: Ré -> Ré♭
+  ];
+  clefInKeyDrills.forEach((d, idx) => {
+    defs.push({
+      id: `clef_inkey_${idx}`,
+      category: 'clef',
+      kind: 'clef_keysig_note',
+      params: d
+    });
+  });
+
+  // 3E. 3-Note Engraved Bass Riff Sight-Read (read left-to-right on Clé de Fa!)
+  const clefRiffs = [
+    { id: 'riff_cmaj', notes: [[3, 0], [5, 0], [7, 0]], label: 'Major triad figure' },        // Do - Mi - Sol
+    { id: 'riff_fmin', notes: [[-1, 0], [1, -1], [3, 0]], label: 'Low minor triad' },        // Fa - La♭ - Do
+    { id: 'riff_gdom', notes: [[0, 0], [2, 0], [6, 0]], label: 'Low Sol7 shell (1–3–♭7)' },  // Sol - Si - Fa
+    { id: 'riff_walk_d', notes: [[4, 0], [6, 1], [7, 0]], label: 'Walking approach' },       // Ré - Fa♯ - Sol
+    { id: 'riff_bb_walk', notes: [[2, -1], [4, 0], [6, 0]], label: 'Si♭ major triad' },      // Si♭ - Ré - Fa
+    { id: 'riff_high_c', notes: [[7, 0], [9, -1], [10, 0]], label: 'Upper register groove' } // Sol - Si♭ - Do
+  ];
+  for (const r of clefRiffs) {
+    defs.push({
+      id: `clef_${r.id}`,
+      category: 'clef',
+      kind: 'clef_riff',
+      params: r
+    });
+  }
+
+  // =========================================================================
+  // 4. EAR -> CIRCLE (Hear Bass Interval or Root Movement, Tap on Circle!)
+  // =========================================================================
+  for (const sym of ['5', '4', '3', '♭3', '♭7', '7', '6', '♭6', '♭5', '2', '♭2']) {
+    defs.push({
+      id: `ear_iv_${sym}`,
+      category: 'ear',
+      kind: 'ear_interval',
+      params: { symbol: sym }
+    });
+  }
+  const earWalks = [
+    { id: 'I_IV_V', seq: ['4', '5'], title: 'Classic 3-chord groove (1 → ? → ?)', explain: '1 → 4 (−1 CCW) → 5 (+1 CW).' },
+    { id: 'I_V_IV', seq: ['5', '4'], title: 'Rock turnaround (1 → ? → ?)', explain: '1 → 5 (+1 CW) → 4 (−1 CCW).' },
+    { id: 'I_bVII_IV', seq: ['♭7', '4'], title: 'Mixolydian rock/funk cadence (1 → ? → ?)', explain: '1 → ♭7 (−2 CCW) → 4 (−1 CCW).' },
+    { id: 'i_bVI_bVII', seq: ['♭6', '♭7'], title: 'Minor anthem walk (1 → ? → ?)', explain: '1 → ♭6 (−4 CCW) → ♭7 (−2 CCW).' },
+    { id: 'I_vi_IV_V', seq: ['6', '4', '5'], title: 'Soul progression (1 → ? → ? → ?)', explain: '1 → 6 (+3 CW) → 4 (−1 CCW) → 5 (+1 CW).' },
+    { id: 'I_ii_V', seq: ['2', '5'], title: 'Jazz setup (1 → ? → ?)', explain: '1 → 2 (+2 CW) → 5 (+1 CW).' },
+    { id: 'arp_dom7', seq: ['3', '5', '♭7'], title: 'Heard 7th arpeggio (1 → ? → ? → ?)', explain: 'Dom7: 1 → 3 (+4 CW) → 5 (+1 CW) → ♭7 (−2 CCW).' },
+    { id: 'arp_m7', seq: ['♭3', '5', '♭7'], title: 'Heard 7th arpeggio (1 → ? → ? → ?)', explain: 'Minor 7th: 1 → ♭3 (−3 CCW) → 5 (+1 CW) → ♭7 (−2 CCW).' }
+  ];
+  for (const w of earWalks) {
+    defs.push({
+      id: `ear_walk_${w.id}`,
+      category: 'ear',
+      kind: 'ear_walk',
+      params: w
+    });
+  }
+
+  // =========================================================================
+  // 5. INTERVALS, CHROMATIC BASS APPROACHES & DEGREE HARMONY (Trimmed Fat!)
+  // =========================================================================
+  // High-value non-trivial intervals across all 12 keys (3, ♭3, ♭7, 7, ♭5, plus curated 6/♭6/4/5)
   for (let pos = 0; pos < 12; pos++) {
-    for (const sym of coreNoteIntervals) {
+    for (const sym of ['3', '♭3', '♭7', '♭5']) {
       defs.push({
         id: `iv_note_${pos}_${sym}`,
         category: 'intervals',
@@ -147,17 +280,39 @@ export function buildCanonicalDeckDefinitions() {
       });
     }
   }
-  // Extra ♭6 on common minor keys
-  for (const pos of [0, 1, 2, 3, 4, 9, 10, 11]) {
-    defs.push({
-      id: `iv_note_${pos}_b6`,
-      category: 'intervals',
-      kind: 'interval_of_note',
-      params: { rootPos: pos, symbol: '♭6' }
-    });
+  for (const pos of [0, 1, 2, 3, 4, 8, 9, 10, 11]) {
+    defs.push(
+      { id: `iv_note_${pos}_6`, category: 'intervals', kind: 'interval_of_note', params: { rootPos: pos, symbol: '6' } },
+      { id: `iv_note_${pos}_b6`, category: 'intervals', kind: 'interval_of_note', params: { rootPos: pos, symbol: '♭6' } }
+    );
+  }
+  // Blind-first 4th & 5th drills on tricky sharp/flat keys (6h/7h/8h/5h)
+  for (const pos of [4, 5, 6, 7, 8, 9]) {
+    defs.push(
+      { id: `iv_blind_${pos}_5`, category: 'intervals', kind: 'interval_of_note', params: { rootPos: pos, symbol: '5', forceBlind: true } },
+      { id: `iv_blind_${pos}_4`, category: 'intervals', kind: 'interval_of_note', params: { rootPos: pos, symbol: '4', forceBlind: true } }
+    );
   }
 
-  // 3B. Interval of a given Degree on the Pure Numeric Circle ("major 3rd of a given degree", etc.)
+  // Chromatic Bass Approach Math: ±1 fret on the neck = ±5 steps on the Circle!
+  for (const pos of [0, 1, 2, 3, 4, 8, 9, 10, 11]) {
+    defs.push(
+      {
+        id: `iv_chrom_below_${pos}`,
+        category: 'intervals',
+        kind: 'chromatic_approach',
+        params: { targetPos: pos, direction: 'below' } // 1 fret below = 7 (+5 CW)
+      },
+      {
+        id: `iv_chrom_above_${pos}`,
+        category: 'intervals',
+        kind: 'chromatic_approach',
+        params: { targetPos: pos, direction: 'above' } // 1 fret above = ♭2 (−5 CCW)
+      }
+    );
+  }
+
+  // Compound Degree Math ("Major 3rd of degree 4", etc.) — Numeric & In-Key
   const compoundDegPairs = [
     { src: '4', iv: '3', result: '6', chordHint: 'IV chord' },
     { src: '5', iv: '3', result: '7', chordHint: 'V chord' },
@@ -174,11 +329,8 @@ export function buildCanonicalDeckDefinitions() {
     { src: '2', iv: '3', result: '♯4', chordHint: 'II7 (V/V)' },
     { src: '♭7', iv: '3', result: '2', chordHint: '♭VII chord' },
     { src: '♭6', iv: '3', result: '1', chordHint: '♭VI chord' },
-    { src: '♭3', iv: '3', result: '5', chordHint: '♭III chord' },
-    { src: '7', iv: '♭5', result: '4', chordHint: 'vii° diminished 5th' },
-    { src: '3', iv: '3', result: '♯5', skip: true }
-  ].filter((x) => !x.skip);
-
+    { src: '♭3', iv: '3', result: '5', chordHint: '♭III chord' }
+  ];
   for (const pair of compoundDegPairs) {
     defs.push({
       id: `iv_deg_${pair.src}_${pair.iv}`,
@@ -188,7 +340,6 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 3C. Interval of a Roman-numeral Degree inside a Concrete Key
   const inKeyDegreeDrills = [
     { keyPos: 0, roman: 'IV', srcSym: '4', iv: '3' },
     { keyPos: 1, roman: 'V', srcSym: '5', iv: '3' },
@@ -197,11 +348,7 @@ export function buildCanonicalDeckDefinitions() {
     { keyPos: 9, roman: 'IV', srcSym: '4', iv: '3' },
     { keyPos: 2, roman: 'vi', srcSym: '6', iv: '♭3' },
     { keyPos: 3, roman: 'V', srcSym: '5', iv: '3' },
-    { keyPos: 8, roman: 'ii', srcSym: '2', iv: '♭3' },
-    { keyPos: 4, roman: 'V7', srcSym: '5', iv: '♭7' },
-    { keyPos: 0, roman: 'ii', srcSym: '2', iv: '♭7' },
-    { keyPos: 1, roman: 'IVmaj7', srcSym: '4', iv: '7' },
-    { keyPos: 10, roman: 'vi', srcSym: '6', iv: '5' }
+    { keyPos: 8, roman: 'ii', srcSym: '2', iv: '♭3' }
   ];
   for (const item of inKeyDegreeDrills) {
     defs.push({
@@ -212,63 +359,132 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // --- 4. RELATIVES & KEY SIGNATURES ---
+  // =========================================================================
+  // 6. CHORDS (Reverse Constellations, Slash Chords / Inversions, & Relatives)
+  // =========================================================================
+  // 6A. Reverse Constellation: 4 chord nodes light up -> Tap the Root (1)!
+  const constellationQualities = [
+    { quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'], positions: [0, 1, 3, 8, 9, 10, 11] },
+    { quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'], positions: [0, 1, 2, 4, 9, 10, 11] },
+    { quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'], positions: [0, 1, 9, 10, 11] },
+    { quality: 'm7♭5', suffix: 'm7♭5', degrees: ['1', '♭3', '♭5', '♭7'], positions: [4, 5, 6] }
+  ];
+  for (const cq of constellationQualities) {
+    for (const pos of cq.positions) {
+      defs.push({
+        id: `chord_const_${cq.quality}_${pos}`,
+        category: 'chords',
+        kind: 'constellation_root',
+        params: { rootPos: pos, quality: cq.quality, suffix: cq.suffix, degrees: cq.degrees }
+      });
+    }
+  }
+
+  // 6B. Slash Chords & Bass Inversions (Read Slash -> Degree, and Inversion -> Bass Note!)
+  const slashDegreeDrills = [
+    { rootPos: 0, bassDeg: '3', chordQual: '' },     // Do/Mi -> 3
+    { rootPos: 8, bassDeg: '3', chordQual: '' },     // La♭/Do -> 3
+    { rootPos: 10, bassDeg: '3', chordQual: '' },    // Si♭/Ré -> 3
+    { rootPos: 11, bassDeg: '♭3', chordQual: 'm' },  // Fa m/La♭ -> ♭3
+    { rootPos: 0, bassDeg: '♭3', chordQual: 'm' },   // Do m/Mi♭ -> ♭3
+    { rootPos: 1, bassDeg: '♭7', chordQual: '7' },   // Sol 7/Fa -> ♭7
+    { rootPos: 2, bassDeg: '♭7', chordQual: 'm7' },  // Ré m7/Do -> ♭7
+    { rootPos: 9, bassDeg: '5', chordQual: '' },     // Mi♭/Si♭ -> 5
+    { rootPos: 11, bassDeg: '2', chordQual: '' }     // Fa/Sol (sus/9th bass!) -> 2
+  ];
+  slashDegreeDrills.forEach((sd, idx) => {
+    defs.push({
+      id: `chord_slash_deg_${idx}`,
+      category: 'chords',
+      kind: 'slash_to_degree',
+      params: sd
+    });
+  });
+
+  const inversionNoteDrills = [
+    { rootPos: 9, invLabel: '1st inversion (bass on 3)', deg: '3', qual: '' },
+    { rootPos: 11, invLabel: '1st inversion (bass on 3)', deg: '3', qual: '' },
+    { rootPos: 3, invLabel: '1st inversion (bass on 3)', deg: '3', qual: '' },
+    { rootPos: 10, invLabel: '3rd inversion (bass on ♭7)', deg: '♭7', qual: '7' },
+    { rootPos: 0, invLabel: '3rd inversion (bass on ♭7)', deg: '♭7', qual: '7' },
+    { rootPos: 2, invLabel: '1st inversion (bass on ♭3)', deg: '♭3', qual: 'm7' }
+  ];
+  inversionNoteDrills.forEach((inv, idx) => {
+    defs.push({
+      id: `chord_inv_note_${idx}`,
+      category: 'chords',
+      kind: 'inversion_to_note',
+      params: inv
+    });
+  });
+
+  // 6C. Relative Minor (+3 CW) & Relative Major (−3 CCW) + Key Signatures
   for (let pos = 0; pos < 12; pos++) {
-    defs.push({
-      id: `rel_min_of_${pos}`,
-      category: 'relatives',
-      kind: 'rel_minor',
-      params: { majorPos: pos, preferFlat: pos === 6 ? false : false }
-    });
-    defs.push({
-      id: `rel_maj_of_${pos}`,
-      category: 'relatives',
-      kind: 'rel_major',
-      params: { minorPos: pos }
-    });
+    defs.push(
+      { id: `rel_min_of_${pos}`, category: 'chords', kind: 'rel_minor', params: { majorPos: pos } },
+      { id: `rel_maj_of_${pos}`, category: 'chords', kind: 'rel_major', params: { minorPos: pos } }
+    );
   }
-  // Key signatures: 1♯..6♯ and 1♭..6♭ (Major) + key Minor signatures
-  for (let sharps = 1; sharps <= 6; sharps++) {
-    defs.push({
-      id: `keysig_maj_s${sharps}`,
-      category: 'relatives',
-      kind: 'key_sig',
-      params: { count: sharps, sign: '♯', mode: 'major', targetPos: sharps }
-    });
-  }
-  for (let flats = 1; flats <= 6; flats++) {
-    defs.push({
-      id: `keysig_maj_b${flats}`,
-      category: 'relatives',
-      kind: 'key_sig',
-      params: { count: flats, sign: '♭', mode: 'major', targetPos: mod(12 - flats, 12) }
-    });
-  }
-  for (const [count, sign, targetPos] of [
-    [0, '', 3],   // La m / Am (0 sharps/flats)
-    [1, '♯', 4],  // Mi m / Em
-    [2, '♯', 5],  // Si m / Bm
-    [3, '♯', 6],  // Fa♯ m / F♯m
-    [1, '♭', 2],  // Ré m / Dm
-    [2, '♭', 1],  // Sol m / Gm
-    [3, '♭', 0],  // Do m / Cm
-    [4, '♭', 11]  // Fa m / Fm
+  for (const [count, sign, mode, targetPos] of [
+    [2, '♯', 'major', 2], [3, '♯', 'major', 3], [4, '♯', 'major', 4], [5, '♯', 'major', 5],
+    [2, '♭', 'major', 10], [3, '♭', 'major', 9], [4, '♭', 'major', 8], [5, '♭', 'major', 7],
+    [2, '♯', 'minor', 5], [3, '♯', 'minor', 6], [2, '♭', 'minor', 1], [3, '♭', 'minor', 0], [4, '♭', 'minor', 11]
   ]) {
     defs.push({
-      id: `keysig_min_${sign || '0'}${count}`,
-      category: 'relatives',
+      id: `keysig_${mode}_${sign}${count}`,
+      category: 'chords',
       kind: 'key_sig',
-      params: { count, sign, mode: 'minor', targetPos }
+      params: { count, sign, mode, targetPos }
     });
   }
 
-  // --- 5. BASS HARMONY, ARPEGGIOS & TURNAROUNDS ---
-  // 5A. 7th Chord Arpeggios across keys
+  // =========================================================================
+  // 7. GROOVES (3->7 Voice-Leading, ii-V-I, Stage Bridge, Tritone Sub, Pockets)
+  // =========================================================================
+  // 7A. Walking Bass 3rd <-> 7th Voice-Leading Resolutions (♭7 of Chord A -> 3 of Chord B!)
+  for (const keyPos of [0, 1, 2, 8, 9, 10, 11]) {
+    defs.push(
+      {
+        id: `bass_vl_ii_V_${keyPos}`,
+        category: 'bass',
+        kind: 'voice_leading',
+        params: { keyPos, pair: 'ii-V' } // ♭7 of ii7 -> 3 of V7
+      },
+      {
+        id: `bass_vl_V_I_${keyPos}`,
+        category: 'bass',
+        kind: 'voice_leading',
+        params: { keyPos, pair: 'V-I' } // ♭7 of V7 -> 3 of IMaj7
+      }
+    );
+  }
+
+  // 7B. Bilingual Stage Bridge Arpeggios (Real-Book Anglo symbol -> Solfège Circle, and vice versa!)
+  const stageBridgeChords = [
+    { rootPos: 10, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },     // Bbm7 <-> Si♭ m7
+    { rootPos: 9, quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'] },    // EbMaj7 <-> Mi♭ Maj7
+    { rootPos: 6, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },      // F#7 <-> Fa♯ 7
+    { rootPos: 8, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },      // Ab7 <-> La♭ 7
+    { rootPos: 4, quality: 'm7♭5', suffix: 'm7♭5', degrees: ['1', '♭3', '♭5', '♭7'] }, // Em7b5 <-> Mi m7♭5
+    { rootPos: 2, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] },      // Dm7 <-> Ré m7
+    { rootPos: 3, quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'] },      // A7 <-> La 7
+    { rootPos: 11, quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'] }      // Fm7 <-> Fa m7
+  ];
+  stageBridgeChords.forEach((cfg, idx) => {
+    defs.push({
+      id: `bass_bridge_${idx}`,
+      category: 'bass',
+      kind: 'bass_arpeggio',
+      params: { ...cfg, crossNotation: true }
+    });
+  });
+
+  // 7C. Core Arpeggios, Turnarounds, Guide Tones, Tritone Subs, Dorian & Pentatonic
   const arpConfigs = [
-    { quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'], keys: [0, 1, 2, 3, 4, 9, 10, 11] },
-    { quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'], keys: [0, 1, 2, 3, 4, 6, 10, 11] },
-    { quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'], keys: [0, 1, 8, 9, 10, 11] },
-    { quality: 'm7♭5', suffix: 'm7♭5', degrees: ['1', '♭3', '♭5', '♭7'], keys: [4, 5, 6, 11] }
+    { quality: 'Dom7', suffix: '7', degrees: ['1', '3', '5', '♭7'], keys: [0, 1, 9, 10, 11] },
+    { quality: 'm7', suffix: 'm7', degrees: ['1', '♭3', '5', '♭7'], keys: [0, 1, 2, 6, 10] },
+    { quality: 'Maj7', suffix: 'Maj7', degrees: ['1', '3', '5', '7'], keys: [0, 8, 9, 11] },
+    { quality: 'Dorian', suffix: ' Dorian', degrees: ['1', '♭3', '6', '♭7'], keys: [0, 2, 4, 1] }
   ];
   for (const cfg of arpConfigs) {
     for (const pos of cfg.keys) {
@@ -276,82 +492,37 @@ export function buildCanonicalDeckDefinitions() {
         id: `bass_arp_${cfg.quality}_${pos}`,
         category: 'bass',
         kind: 'bass_arpeggio',
-        params: { rootPos: pos, quality: cfg.quality, suffix: cfg.suffix, degrees: cfg.degrees }
+        params: { rootPos: pos, quality: cfg.quality, suffix: cfg.suffix, degrees: cfg.degrees, crossNotation: false }
       });
     }
   }
 
-  // 5B. ii -> V -> I, vi -> ii -> V -> I, and I -> IV -> V bass walks
-  for (const pos of [0, 1, 2, 3, 8, 9, 10, 11]) {
-    defs.push({
-      id: `bass_iiVI_${pos}`,
-      category: 'bass',
-      kind: 'bass_progression',
-      params: { keyPos: pos, prog: 'ii-V-I' }
-    });
+  for (const pos of [0, 1, 2, 8, 9, 10, 11]) {
+    defs.push({ id: `bass_iiVI_${pos}`, category: 'bass', kind: 'bass_progression', params: { keyPos: pos, prog: 'ii-V-I' } });
   }
   for (const pos of [0, 1, 9, 10, 11]) {
-    defs.push({
-      id: `bass_viiiVI_${pos}`,
-      category: 'bass',
-      kind: 'bass_progression',
-      params: { keyPos: pos, prog: 'vi-ii-V-I' }
-    });
+    defs.push({ id: `bass_viiiVI_${pos}`, category: 'bass', kind: 'bass_progression', params: { keyPos: pos, prog: 'vi-ii-V-I' } });
   }
-  for (const pos of [0, 1, 2, 3, 4, 10, 11]) {
-    defs.push({
-      id: `bass_I_IV_V_${pos}`,
-      category: 'bass',
-      kind: 'bass_progression',
-      params: { keyPos: pos, prog: 'I-IV-V' }
-    });
+  for (const pos of [0, 1, 4, 10, 11]) {
+    defs.push({ id: `bass_I_IV_V_${pos}`, category: 'bass', kind: 'bass_progression', params: { keyPos: pos, prog: 'I-IV-V' } });
   }
-
-  // 5C. Tritone Substitution (♭II7 resolving down a half-step to I)
   for (const pos of [0, 1, 9, 10, 11, 2]) {
-    defs.push({
-      id: `bass_tritonesub_${pos}`,
-      category: 'bass',
-      kind: 'bass_tritone_sub',
-      params: { targetKeyPos: pos }
-    });
+    defs.push(
+      { id: `bass_tritonesub_${pos}`, category: 'bass', kind: 'bass_tritone_sub', params: { targetKeyPos: pos } },
+      { id: `bass_guidetones_${pos}`, category: 'bass', kind: 'bass_guidetones', params: { rootPos: pos } },
+      { id: `bass_penta_${pos}`, category: 'bass', kind: 'bass_pentatonic', params: { rootPos: pos } }
+    );
   }
 
-  // 5D. Minor Pentatonic Bass Pocket (1 -> ♭3 -> 4 -> 5 -> ♭7)
-  for (const pos of [0, 1, 2, 3, 4, 6, 10, 11]) {
-    defs.push({
-      id: `bass_penta_${pos}`,
-      category: 'bass',
-      kind: 'bass_pentatonic',
-      params: { rootPos: pos }
-    });
-  }
-
-  // 5E. Dom7 Guide Tones (3 -> ♭7 tritone pair) & Dorian Funk Pocket (1 -> ♭3 -> 6 -> ♭7)
-  for (const pos of [0, 1, 2, 9, 10, 11]) {
-    defs.push({
-      id: `bass_guidetones_${pos}`,
-      category: 'bass',
-      kind: 'bass_guidetones',
-      params: { rootPos: pos }
-    });
-  }
-  for (const pos of [0, 1, 2, 3, 4, 11]) {
-    defs.push({
-      id: `bass_dorian_${pos}`,
-      category: 'bass',
-      kind: 'bass_arpeggio',
-      params: { rootPos: pos, quality: 'Dorian', suffix: ' Dorian', degrees: ['1', '♭3', '6', '♭7'] }
-    });
-  }
-
-  // --- 6. 4-STRING BASS FRETBOARD <-> CIRCLE ---
-  // 6A. Identify bass neck dot directly on the Circle
+  // =========================================================================
+  // 8. NECK (Bidirectional: Neck -> Circle AND Circle -> All 4 Bass Strings!)
+  // =========================================================================
+  // 8A. Forward: Fretboard Dot -> Note on Circle
   const neckPositions = [
-    [0, 1], [0, 3], [0, 5], [0, 6], [0, 8], [0, 10], [0, 11], // E / Mi string
-    [1, 1], [1, 2], [1, 3], [1, 4], [1, 6], [1, 8], [1, 11], // A / La string
-    [2, 1], [2, 3], [2, 4], [2, 6], [2, 8], [2, 9],          // D / Ré string
-    [3, 1], [3, 2], [3, 4], [3, 5], [3, 8], [3, 10]          // G / Sol string
+    [0, 1], [0, 4], [0, 6], [0, 8], [0, 11],
+    [1, 1], [1, 3], [1, 6], [1, 8], [1, 11],
+    [2, 1], [2, 4], [2, 6], [2, 8],
+    [3, 1], [3, 3], [3, 6], [3, 8]
   ];
   for (const [sIdx, fret] of neckPositions) {
     defs.push({
@@ -362,20 +533,16 @@ export function buildCanonicalDeckDefinitions() {
     });
   }
 
-  // 6B. Bass neck dot -> tap its harmonic interval on the Circle
+  // 8B. Forward: Fretboard Dot -> Harmonic Interval on Circle
   const neckIntervalDrills = [
-    { stringIndex: 0, fret: 5, symbol: '3' },   // La -> Do♯
-    { stringIndex: 0, fret: 3, symbol: '5' },   // Sol -> Ré
-    { stringIndex: 0, fret: 6, symbol: '♭7' },  // Si♭ -> La♭
-    { stringIndex: 0, fret: 8, symbol: '♭3' },  // Do -> Mi♭
-    { stringIndex: 1, fret: 3, symbol: '3' },   // Do -> Mi
-    { stringIndex: 1, fret: 6, symbol: '5' },   // Mi♭ -> Si♭
-    { stringIndex: 1, fret: 5, symbol: '♭3' },  // Ré -> Fa
-    { stringIndex: 1, fret: 8, symbol: '♭7' },  // Fa -> Mi♭
-    { stringIndex: 2, fret: 3, symbol: '3' },   // Fa -> La
-    { stringIndex: 2, fret: 5, symbol: '♭7' },  // Sol -> Fa
-    { stringIndex: 3, fret: 4, symbol: '♭3' },  // Si -> Ré
-    { stringIndex: 3, fret: 5, symbol: '5' }    // Do -> Sol
+    { stringIndex: 0, fret: 5, symbol: '3' },
+    { stringIndex: 0, fret: 6, symbol: '♭7' },
+    { stringIndex: 0, fret: 8, symbol: '♭3' },
+    { stringIndex: 1, fret: 3, symbol: '3' },
+    { stringIndex: 1, fret: 6, symbol: '5' },
+    { stringIndex: 1, fret: 8, symbol: '♭7' },
+    { stringIndex: 2, fret: 3, symbol: '3' },
+    { stringIndex: 3, fret: 4, symbol: '♭3' }
   ];
   for (const item of neckIntervalDrills) {
     defs.push({
@@ -383,6 +550,24 @@ export function buildCanonicalDeckDefinitions() {
       category: 'fretboard',
       kind: 'neck_to_interval',
       params: item
+    });
+  }
+
+  // 8C. Reverse: Circle Note (or Harmonic Target!) -> Find across ALL 4 Bass Strings!
+  for (let pos = 0; pos < 12; pos++) {
+    defs.push({
+      id: `neck_all4_pos_${pos}`,
+      category: 'fretboard',
+      kind: 'circle_to_all_strings',
+      params: { targetPos: pos, harmonicFrom: null }
+    });
+  }
+  for (const [rootPos, sym] of [[0, '♭3'], [1, '3'], [10, '3'], [11, '♭7'], [9, '5'], [2, '♭3']]) {
+    defs.push({
+      id: `neck_all4_iv_${rootPos}_${sym}`,
+      category: 'fretboard',
+      kind: 'circle_to_all_strings',
+      params: { targetPos: mod(rootPos + INTERVALS[sym].circleOffset, 12), harmonicFrom: { rootPos, sym } }
     });
   }
 
@@ -397,16 +582,53 @@ export function getDefinitionById(id) {
   return DECK_MAP.get(id) || null;
 }
 
-function makeLabeledNoteNodes(notation, highlightMap = {}) {
+/**
+ * Builds the 12 Circle nodes for Note-based drills.
+ * When `isBlind` is true, ONLY `Do` / `C` at 12h is labeled — the other 11 positions are blank
+ * (forcing real mental-map recall instead of scanning text labels!).
+ */
+function makeNoteWheelNodes(notation, { isBlind = false, highlightMap = {} } = {}) {
   return Array.from({ length: 12 }, (_, pos) => {
     const std = getStandardNodeLabel(pos, notation);
-    const hl = highlightMap[pos] || {};
+    const hl = highlightMap[pos];
+
+    if (isBlind) {
+      if (pos === 0) {
+        return {
+          pos,
+          mode: hl?.mode || 'anchor',
+          primary: hl?.primary !== undefined ? hl.primary : std.primary,
+          secondary: '',
+          subBadge: hl?.subBadge || '12h',
+          wrongFlashLabel: std.primary
+        };
+      }
+      if (hl && hl.showEvenWhenBlind) {
+        return {
+          pos,
+          mode: hl.mode || 'anchor',
+          primary: hl.primary !== undefined ? hl.primary : std.primary,
+          secondary: hl.secondary || '',
+          subBadge: hl.subBadge || '',
+          wrongFlashLabel: std.primary
+        };
+      }
+      return {
+        pos,
+        mode: 'blank',
+        primary: '',
+        secondary: '',
+        subBadge: '',
+        wrongFlashLabel: std.primary
+      };
+    }
+
     return {
       pos,
-      mode: hl.mode || 'labeled',
-      primary: hl.primary !== undefined ? hl.primary : std.primary,
-      secondary: hl.secondary !== undefined ? hl.secondary : std.secondary,
-      subBadge: hl.subBadge || '',
+      mode: hl?.mode || 'labeled',
+      primary: hl?.primary !== undefined ? hl.primary : std.primary,
+      secondary: hl?.secondary !== undefined ? hl.secondary : std.secondary,
+      subBadge: hl?.subBadge || '',
       wrongFlashLabel: std.primary
     };
   });
@@ -444,7 +666,10 @@ function makeBlankDegreeNodes(rootPos) {
   });
 }
 
-function makeLabeledDegreeNodes(rootPos, sourcePos = null) {
+function makeLabeledDegreeNodes(rootPos, sourcePos = null, isBlind = false) {
+  if (isBlind) {
+    return makeBlankDegreeNodes(rootPos);
+  }
   return Array.from({ length: 12 }, (_, pos) => {
     const offset = mod(pos - rootPos, 12);
     const deg = OFFSET_TO_DEGREE[offset];
@@ -462,21 +687,39 @@ function makeLabeledDegreeNodes(rootPos, sourcePos = null) {
   });
 }
 
+function shouldUseBlindWheel(card, blindSetting = 'auto', forceBlind = false) {
+  if (forceBlind) return true;
+  if (blindSetting === 'blind') return true;
+  if (blindSetting === 'labels') return false;
+  // Auto mode: once stability >= 2.8 days (after 1-2 clean reviews), graduate to Blind Wheel!
+  return (card.stability || 0) >= 2.8;
+}
+
 /**
- * Instantiates a live, interactive Circle-of-Fifths question from a stored card.
+ * Instantiates a live interactive quiz specification from a card.
  */
-export function instantiateQuiz(card, notation = 'solfege', seed = null) {
+export function instantiateQuiz(
+  card,
+  notation = 'solfege',
+  seed = null,
+  { blindMode = 'auto' } = {}
+) {
   const def = DECK_MAP.get(card.id);
   if (!def) {
     throw new Error(`Unknown card definition: ${card.id}`);
   }
   const rand = seed !== null ? createRng(seed) : Math.random;
   const { kind, params } = def;
+  const isBlind = shouldUseBlindWheel(card, blindMode, Boolean(params.forceBlind));
 
-  // 1A. Spot-place a single note on blank Circle (Do anchored at 12:00)
+  // -------------------------------------------------------------------------
+  // 1. NOTES (Blank Circle + Bilingual Reflex)
+  // -------------------------------------------------------------------------
   if (kind === 'note_spot') {
-    const { targetPos, preferFlat } = params;
-    const noteName = getCanonicalNoteName(targetPos, notation, preferFlat);
+    const { targetPos, preferFlat, crossNotation } = params;
+    const promptNotation = crossNotation ? oppositeNotation(notation) : notation;
+    const promptNote = getCanonicalNoteName(targetPos, promptNotation, preferFlat);
+    const circleNote = getCanonicalNoteName(targetPos, notation, preferFlat);
     const doName = getCanonicalNoteName(0, notation);
     const nodes = makeBlankNoteNodes(notation, [0]);
     const stepDelta = formatCircleStepDelta(targetPos);
@@ -484,37 +727,40 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'notes',
-      eyebrow: 'BLANK CIRCLE · NOTES',
-      promptHtml: `Place <b>${noteName}</b> on the Circle`,
+      answerSurface: 'circle',
+      eyebrow: crossNotation ? 'STAGE BRIDGE · BLANK CIRCLE' : 'BLANK CIRCLE · NOTES',
+      promptHtml: crossNotation
+        ? `Chart says <b>${promptNote}</b> · place on Circle`
+        : `Place <b>${promptNote}</b> on the Circle`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
         {
           targetPos,
-          centerLabel: noteName,
-          centerSub: 'Tap position',
-          stepChipLabel: noteName,
-          revealedPrimary: noteName,
-          revealedSub: '',
+          centerLabel: promptNote,
+          centerSub: crossNotation ? 'Translate & tap' : 'Tap position',
+          stepChipLabel: promptNote,
+          revealedPrimary: circleNote,
+          revealedSub: crossNotation ? promptNote : '',
           midiToPlay: bassMidiForPos(targetPos, 36)
         }
       ],
       geometry: { type: 'arc', fromPos: 0, toPos: targetPos },
-      doneCenterPrimary: noteName,
-      doneCenterSub: stepDelta,
-      explanation: `${noteName} is ${stepDelta} from ${doName}.`
+      doneCenterPrimary: circleNote,
+      doneCenterSub: crossNotation ? `= ${promptNote}` : stepDelta,
+      explanation: crossNotation
+        ? `${promptNote} = ${circleNote} (${stepDelta} from ${doName}).`
+        : `${circleNote} is ${stepDelta} from ${doName}.`
     };
   }
 
-  // 1B. Place 4 notes relative to a single rotated anchor note
   if (kind === 'note_quad') {
     const { anchorPos } = params;
     const anchorName = getCanonicalNoteName(anchorPos, notation);
     const nodes = makeBlankNoteNodes(notation, [anchorPos]);
     const pool = [];
-    for (let p = 0; p < 12; p++) {
-      if (p !== anchorPos) pool.push(p);
-    }
+    for (let p = 0; p < 12; p++) if (p !== anchorPos) pool.push(p);
     const picked = shuffle(pool, rand).slice(0, 4);
     const steps = picked.map((p, idx) => {
       const nm = getCanonicalNoteName(p, notation);
@@ -532,8 +778,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'notes',
-      eyebrow: 'BLANK CIRCLE · ANCHOR',
+      answerSurface: 'circle',
+      eyebrow: 'BLANK CIRCLE · ROTATED ANCHOR',
       promptHtml: `Anchored on <b>${anchorName}</b> · place 4 notes`,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
@@ -544,7 +792,6 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 1C. Multi-note sweep on blank Circle
   if (kind === 'note_sweep') {
     const { mode } = params;
     const nodes = makeBlankNoteNodes(notation, [0]);
@@ -562,12 +809,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     } else if (mode === 'fourths') {
       seq = [11, 10, 9, 8, 7, 6];
       title = 'Walk <b>CCW in 4ths</b> (6 steps)';
-    } else if (mode === 'all12') {
+    } else {
       seq = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], rand);
       title = 'Fill <b>all 12 notes</b> around the Circle';
-    } else {
-      seq = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], rand).slice(0, 8);
-      title = 'Fill <b>8 random notes</b> around the Circle';
     }
     const preferFlat = mode === 'flats' || mode === 'fourths';
     const steps = seq.map((p, idx) => {
@@ -586,8 +830,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'notes',
+      answerSurface: 'circle',
       eyebrow: 'FILL THE CIRCLE · NOTES',
       promptHtml: title,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
@@ -598,7 +844,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 2A. Single numeric degree on blank Circle (1 at random clock position!)
+  // -------------------------------------------------------------------------
+  // 2. DEGREES (Blank Circle Numeric Degrees)
+  // -------------------------------------------------------------------------
   if (kind === 'deg_spot') {
     const { symbol, showName } = params;
     const iv = INTERVALS[symbol];
@@ -607,15 +855,15 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const nodes = makeBlankDegreeNodes(rootPos);
     const stepDelta = formatCircleStepDelta(iv.circleOffset);
 
-    const promptHtml = showName
-      ? `Place degree <b>${symbol}</b> <span class="q-sub">(${iv.name})</span>`
-      : `Place degree <b>${symbol}</b> relative to <b>1</b>`;
-
     return {
       id: card.id,
       category: 'degrees',
+      answerSurface: 'circle',
       eyebrow: 'BLANK CIRCLE · DEGREES',
-      promptHtml,
+      promptHtml: showName
+        ? `Place degree <b>${symbol}</b> <span class="q-sub">(${iv.name})</span>`
+        : `Place degree <b>${symbol}</b> relative to <b>1</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -636,12 +884,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 2B. Multi-degree scale / chord fill on blank Circle around random `1`
   if (kind === 'deg_multi') {
     const { preset } = params;
     const rootPos = Math.floor(rand() * 12);
     const nodes = makeBlankDegreeNodes(rootPos);
-
     let degList = [];
     let title = '';
     let takeaway = '';
@@ -649,23 +895,23 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     if (preset === 'maj_order') {
       degList = ['2', '3', '4', '5', '6', '7'];
       title = 'Place <b>Major Scale</b> degrees <span class="q-sub">(2 → 7)</span>';
-      takeaway = 'Major scale forms 7 contiguous slices: 4 (CCW) through 7 (+5 CW).';
+      takeaway = 'Major scale forms 7 contiguous slices: 4 (−1 CCW) through 7 (+5 CW).';
     } else if (preset === 'maj_shuf') {
       degList = shuffle(['2', '3', '4', '5', '6', '7'], rand);
       title = 'Place shuffled <b>Major</b> degrees';
       takeaway = '4 = −1 CCW, 5 = +1, 2 = +2, 6 = +3, 3 = +4, 7 = +5 CW.';
-    } else if (preset === 'min_order') {
-      degList = ['2', '♭3', '4', '5', '♭6', '♭7'];
-      title = 'Place <b>Natural Minor</b> degrees';
-      takeaway = 'Natural minor forms 7 contiguous slices from ♭6 (−4 CCW) to 2 (+2 CW).';
     } else if (preset === 'min_shuf') {
       degList = shuffle(['2', '♭3', '4', '5', '♭6', '♭7'], rand);
-      title = 'Place shuffled <b>Minor</b> degrees';
-      takeaway = '♭3 = −3 CCW, ♭6 = −4 CCW, ♭7 = −2 CCW.';
+      title = 'Place shuffled <b>Natural Minor</b> degrees';
+      takeaway = 'Natural minor is 7 contiguous slices from ♭6 (−4 CCW) to 2 (+2 CW).';
+    } else if (preset === 'dorian') {
+      degList = shuffle(['2', '♭3', '4', '5', '6', '♭7'], rand);
+      title = 'Place <b>Dorian</b> funk degrees';
+      takeaway = 'Dorian is mirror-symmetric around 1: −3 (♭3) through +3 (6)!';
     } else if (preset === 'dom7') {
       degList = ['3', '5', '♭7'];
       title = 'Place <b>Dom7</b> degrees <span class="q-sub">(3 · 5 · ♭7)</span>';
-      takeaway = 'Dom7 combines +4 CW (3), +1 CW (5), and −2 CCW (♭7) — a tritone between 3 & ♭7.';
+      takeaway = 'Dom7 combines +4 CW (3), +1 CW (5), and −2 CCW (♭7) — tritone between 3 & ♭7.';
     } else if (preset === 'm7') {
       degList = ['♭3', '5', '♭7'];
       title = 'Place <b>Minor 7th</b> degrees <span class="q-sub">(♭3 · 5 · ♭7)</span>';
@@ -678,10 +924,6 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
       degList = ['♭3', '4', '5', '♭7'];
       title = 'Place <b>Minor Pentatonic</b> degrees';
       takeaway = 'Minor pentatonic is 5 adjacent slices: ♭3, ♭7, 4, 1, 5!';
-    } else if (preset === 'dorian') {
-      degList = shuffle(['2', '♭3', '4', '5', '6', '♭7'], rand);
-      title = 'Place <b>Dorian</b> funk degrees';
-      takeaway = 'Dorian is mirror-symmetric around 1: −3 (♭3) through +3 (6)!';
     } else if (preset === 'chromatic12') {
       degList = shuffle(['♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'], rand);
       title = 'Fill <b>all 12 chromatic</b> degrees';
@@ -694,9 +936,8 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
 
     const steps = degList.map((sym, idx) => {
       const iv = INTERVALS[sym];
-      const tPos = mod(rootPos + iv.circleOffset, 12);
       return {
-        targetPos: tPos,
+        targetPos: mod(rootPos + iv.circleOffset, 12),
         centerLabel: sym,
         centerSub: `${idx + 1} / ${degList.length}`,
         stepChipLabel: sym,
@@ -709,22 +950,232 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'degrees',
+      answerSurface: 'circle',
       eyebrow: 'BLANK CIRCLE · DEGREES',
       promptHtml: title,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
-      geometry: {
-        type: 'polygon',
-        positions: [rootPos, ...steps.map((s) => s.targetPos)]
-      },
+      geometry: { type: 'polygon', positions: [rootPos, ...steps.map((s) => s.targetPos)] },
       doneCenterPrimary: '✓',
       doneCenterSub: `${degList.length} degrees`,
       explanation: takeaway
     };
   }
 
-  // 3A. Interval of a given Note
+  // -------------------------------------------------------------------------
+  // 3. CLÉ DE FA (𝄢 Bass Clef Sight-Reading -> Circle of Fifths)
+  // -------------------------------------------------------------------------
+  if (kind === 'clef_single') {
+    const { step, acc, landmarkHint, highlightFa } = params;
+    const noteInfo = bassStaffStepToNote(step, acc);
+    const noteLabel = notation === 'letter' ? noteInfo.letterName : noteInfo.solfege;
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
+
+    return {
+      id: card.id,
+      category: 'clef',
+      answerSurface: 'circle',
+      eyebrow: landmarkHint ? 'CLÉ DE FA · LANDMARK' : 'CLÉ DE FA · SIGHT-READ',
+      promptHtml: landmarkHint
+        ? `Read this <b>Clé de Fa</b> landmark`
+        : `Read this <b>Clé de Fa</b> note on the Circle`,
+      staff: {
+        notes: [{ step, acc, showAccidental: acc !== 0, state: 'active' }],
+        keySig: { count: 0, sign: '' },
+        highlightFaLine: Boolean(highlightFa)
+      },
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos: noteInfo.pos,
+          centerLabel: '𝄢',
+          centerSub: 'Tap note',
+          stepChipLabel: noteLabel,
+          revealedPrimary: noteLabel,
+          revealedSub: '𝄢',
+          midiToPlay: noteInfo.midi
+        }
+      ],
+      geometry: { type: 'arc', fromPos: 11, toPos: noteInfo.pos }, // from Fa (11) reference
+      doneCenterPrimary: noteLabel,
+      doneCenterSub: 'Clé de Fa',
+      explanation: landmarkHint
+        ? `${noteLabel} — ${landmarkHint}.`
+        : `Clé de Fa: 4th line = ${getCanonicalNoteName(11, notation)}, middle C = 1st ledger above → this note is ${noteLabel}.`
+    };
+  }
+
+  if (kind === 'clef_keysig_note') {
+    const { step, acc, keySig, keyLabelPos } = params;
+    const noteInfo = bassStaffStepToNote(step, acc);
+    const noteLabel = notation === 'letter' ? noteInfo.letterName : noteInfo.solfege;
+    const keyName = getCanonicalNoteName(keyLabelPos, notation, keySig.sign === '♭');
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
+
+    return {
+      id: card.id,
+      category: 'clef',
+      answerSurface: 'circle',
+      eyebrow: `CLÉ DE FA · KEY SIG (${keySig.count}${keySig.sign})`,
+      promptHtml: `Watch the <b>key signature</b> · tap this note`,
+      staff: {
+        notes: [{ step, acc, showAccidental: false, state: 'active' }],
+        keySig,
+        highlightFaLine: false
+      },
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos: noteInfo.pos,
+          centerLabel: `${keySig.count}${keySig.sign}`,
+          centerSub: 'Read key sig!',
+          stepChipLabel: noteLabel,
+          revealedPrimary: noteLabel,
+          revealedSub: `${keySig.count}${keySig.sign}`,
+          midiToPlay: noteInfo.midi
+        }
+      ],
+      geometry: { type: 'arc', fromPos: keyLabelPos, toPos: noteInfo.pos },
+      doneCenterPrimary: noteLabel,
+      doneCenterSub: `in ${keyName} (${keySig.count}${keySig.sign})`,
+      explanation: `With ${keySig.count}${keySig.sign} (${keyName} major) at the clef, this line/space reads as ${noteLabel}!`
+    };
+  }
+
+  if (kind === 'clef_riff') {
+    const { notes: rawNotes, label } = params;
+    const parsed = rawNotes.map(([step, acc]) => bassStaffStepToNote(step, acc));
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
+
+    const steps = parsed.map((inf, idx) => {
+      const lbl = notation === 'letter' ? inf.letterName : inf.solfege;
+      return {
+        targetPos: inf.pos,
+        centerLabel: `Note ${idx + 1}`,
+        centerSub: `${idx + 1} / ${parsed.length}`,
+        stepChipLabel: `${idx + 1}`,
+        revealedPrimary: lbl,
+        revealedSub: `#${idx + 1}`,
+        midiToPlay: inf.midi
+      };
+    });
+
+    const summary = steps.map((s) => s.revealedPrimary).join(' → ');
+
+    return {
+      id: card.id,
+      category: 'clef',
+      answerSurface: 'circle',
+      eyebrow: 'CLÉ DE FA · 3-NOTE BASS FIGURE',
+      promptHtml: `Sight-read left to right <span class="q-sub">(${label})</span>`,
+      staff: {
+        notes: rawNotes.map(([step, acc], idx) => ({
+          step,
+          acc,
+          showAccidental: acc !== 0,
+          state: idx === 0 ? 'active' : 'default'
+        })),
+        keySig: { count: 0, sign: '' },
+        highlightFaLine: false
+      },
+      fretboard: null,
+      nodes,
+      steps,
+      geometry: { type: 'walk', positions: steps.map((s) => s.targetPos) },
+      doneCenterPrimary: '3 / 3',
+      doneCenterSub: summary,
+      explanation: `Clé de Fa figure: ${summary}.`
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. EAR -> CIRCLE (Hear Bass Movement, Tap on Circle!)
+  // -------------------------------------------------------------------------
+  if (kind === 'ear_interval') {
+    const { symbol } = params;
+    const iv = INTERVALS[symbol];
+    const rootPos = Math.floor(rand() * 12);
+    const targetPos = mod(rootPos + iv.circleOffset, 12);
+    const rootMidi = 34 + Math.floor(rand() * 8);
+    const targetMidi = rootMidi + iv.semitones;
+    const nodes = makeBlankDegreeNodes(rootPos);
+    const stepDelta = formatCircleStepDelta(iv.circleOffset);
+
+    return {
+      id: card.id,
+      category: 'ear',
+      answerSurface: 'circle',
+      eyebrow: 'EAR → CIRCLE · INTERVAL',
+      promptHtml: `Listen to <b>1 → ?</b> · tap the degree you heard`,
+      staff: null,
+      fretboard: null,
+      audioPromptMidis: [rootMidi, targetMidi],
+      audioStepSec: 0.44,
+      nodes,
+      steps: [
+        {
+          targetPos,
+          centerLabel: '▶ Hear',
+          centerSub: 'Tap hub to replay',
+          stepChipLabel: '?',
+          revealedPrimary: symbol,
+          revealedSub: iv.name,
+          midiToPlay: targetMidi
+        }
+      ],
+      geometry: { type: 'arc', fromPos: rootPos, toPos: targetPos },
+      doneCenterPrimary: symbol,
+      doneCenterSub: iv.name,
+      explanation: `You heard ${iv.name} (${symbol}) — ${stepDelta} from 1.`
+    };
+  }
+
+  if (kind === 'ear_walk') {
+    const { seq, title, explain } = params;
+    const rootPos = Math.floor(rand() * 12);
+    const rootMidi = 35 + Math.floor(rand() * 6);
+    const nodes = makeBlankDegreeNodes(rootPos);
+
+    const promptMidis = [rootMidi, ...seq.map((sym) => rootMidi + INTERVALS[sym].semitones)];
+    const steps = seq.map((sym, idx) => {
+      const iv = INTERVALS[sym];
+      return {
+        targetPos: mod(rootPos + iv.circleOffset, 12),
+        centerLabel: '▶ Hear',
+        centerSub: `Note ${idx + 2} of ${seq.length + 1}`,
+        stepChipLabel: `?${idx + 1}`,
+        revealedPrimary: sym,
+        revealedSub: '',
+        midiToPlay: rootMidi + iv.semitones
+      };
+    });
+
+    return {
+      id: card.id,
+      category: 'ear',
+      answerSurface: 'circle',
+      eyebrow: 'EAR → CIRCLE · BASS LINE',
+      promptHtml: `Hear <b>${title}</b>`,
+      staff: null,
+      fretboard: null,
+      audioPromptMidis: promptMidis,
+      audioStepSec: 0.38,
+      nodes,
+      steps,
+      geometry: { type: 'walk', positions: [rootPos, ...steps.map((s) => s.targetPos)] },
+      doneCenterPrimary: `1→${seq.join('→')}`,
+      doneCenterSub: 'Ear locked!',
+      explanation: explain
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. INTERVALS, CHROMATIC APPROACHES & DEGREE HARMONY
+  // -------------------------------------------------------------------------
   if (kind === 'interval_of_note') {
     const { rootPos, symbol } = params;
     const iv = INTERVALS[symbol];
@@ -735,16 +1186,22 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const targetName = formatSpelledNote(targetSpelled, notation);
     const targetPos = targetSpelled.pos;
 
-    const nodes = makeLabeledNoteNodes(notation, {
-      [rootPos]: { mode: 'anchor', primary: rootName, secondary: '', subBadge: '1' }
+    // In Blind mode, do NOT pre-highlight rootPos (unless it is 0/Do), forcing true mental map!
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [rootPos]: { mode: 'anchor', primary: rootName, secondary: '', subBadge: '1' } }
     });
     const stepDelta = formatCircleStepDelta(iv.circleOffset);
 
     return {
       id: card.id,
       category: 'intervals',
-      eyebrow: 'INTERVAL OF A NOTE',
+      answerSurface: 'circle',
+      eyebrow: isBlind ? 'BLIND WHEEL · INTERVAL' : 'INTERVAL OF A NOTE',
       promptHtml: `${iv.name} <span class="q-badge">${symbol}</span> of <b>${rootName}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -758,6 +1215,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: bassMidiForPos(rootPos, 36) + iv.semitones
         }
       ],
+      revealExtraNodes: isBlind && rootPos !== targetPos
+        ? [{ pos: rootPos, mode: 'anchor', primary: rootName, subBadge: '1' }]
+        : [],
       rootMidiPreview: bassMidiForPos(rootPos, 36),
       geometry: { type: 'arc', fromPos: rootPos, toPos: targetPos },
       doneCenterPrimary: targetName,
@@ -766,7 +1226,61 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 3B. Interval of a given Degree on the Pure Numeric Circle
+  if (kind === 'chromatic_approach') {
+    const { targetPos: destPos, direction } = params;
+    const isBelow = direction === 'below';
+    const ivSym = isBelow ? '7' : '♭2'; // 1 fret below = Maj 7th (+5 CW); 1 fret above = Min 2nd (−5 CCW)
+    const destSpelled = chooseBestRootSpelling(destPos, [ivSym]);
+    const approachSpelled = toPracticalEnharmonic(spellInterval(destSpelled, ivSym));
+    const destName = formatSpelledNote(destSpelled, notation);
+    const approachName = formatSpelledNote(approachSpelled, notation);
+    const approachPos = approachSpelled.pos;
+
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [destPos]: { mode: 'anchor', primary: destName, secondary: '', subBadge: 'target' } }
+    });
+
+    const destMidi = bassMidiForPos(destPos, 38);
+    const approachMidi = isBelow ? destMidi - 1 : destMidi + 1;
+
+    return {
+      id: card.id,
+      category: 'intervals',
+      answerSurface: 'circle',
+      eyebrow: 'BASS CHROMATIC APPROACH',
+      promptHtml: isBelow
+        ? `<b>1 fret below</b> (leading tone) into <b>${destName}</b>`
+        : `<b>1 fret above</b> (chromatic slide) into <b>${destName}</b>`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos: approachPos,
+          centerLabel: isBelow ? '−1 fret' : '+1 fret',
+          centerSub: `→ ${destName}`,
+          stepChipLabel: approachName,
+          revealedPrimary: approachName,
+          revealedSub: isBelow ? '+5 CW' : '−5 CCW',
+          midiToPlay: approachMidi
+        }
+      ],
+      revealExtraNodes: isBlind
+        ? [{ pos: destPos, mode: 'anchor', primary: destName, subBadge: 'target' }]
+        : [],
+      rootMidiPreview: destMidi,
+      geometry: { type: 'arc', fromPos: approachPos, toPos: destPos },
+      doneCenterPrimary: `${approachName}→${destName}`,
+      doneCenterSub: isBelow ? '+5 CW = −1 fret' : '−5 CCW = +1 fret',
+      explanation: isBelow
+        ? `1 fret below any note is always +5 steps CW on the Circle: ${approachName} → ${destName}.`
+        : `1 fret above any note is always −5 steps CCW on the Circle: ${approachName} → ${destName}.`
+    };
+  }
+
   if (kind === 'interval_of_degree_numeric') {
     const { src, iv: ivSym, result, chordHint } = params;
     const srcIv = INTERVALS[src];
@@ -774,14 +1288,16 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const rootPos = Math.floor(rand() * 12);
     const srcPos = mod(rootPos + srcIv.circleOffset, 12);
     const targetPos = mod(srcPos + hopIv.circleOffset, 12);
-    const nodes = makeLabeledDegreeNodes(rootPos, srcPos);
+    const nodes = makeLabeledDegreeNodes(rootPos, srcPos, isBlind);
     const hopDelta = formatCircleStepDelta(hopIv.circleOffset);
 
     return {
       id: card.id,
       category: 'intervals',
-      eyebrow: 'DEGREE HARMONY',
+      answerSurface: 'circle',
+      eyebrow: isBlind ? 'BLIND DEGREE HARMONY' : 'DEGREE HARMONY',
       promptHtml: `${hopIv.name} <span class="q-badge">${ivSym}</span> of degree <b>${src}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -795,6 +1311,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: 36 + mod(srcIv.semitones + hopIv.semitones, 12)
         }
       ],
+      revealExtraNodes: isBlind
+        ? [{ pos: srcPos, mode: 'source', primary: src, subBadge: '' }]
+        : [],
       geometry: { type: 'two-hop', fromPos: rootPos, midPos: srcPos, toPos: targetPos },
       doneCenterPrimary: result,
       doneCenterSub: hopDelta,
@@ -802,7 +1321,6 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 3C. Interval of a Degree inside a Concrete Key
   if (kind === 'interval_of_degree_inkey') {
     const { keyPos, roman, srcSym, iv: ivSym } = params;
     const srcIv = INTERVALS[srcSym];
@@ -818,15 +1336,20 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const srcPos = chordRootSpelled.pos;
     const targetPos = targetSpelled.pos;
 
-    const nodes = makeLabeledNoteNodes(notation, {
-      [keyPos]: { mode: 'anchor', primary: keyName, secondary: '', subBadge: 'I' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [keyPos]: { mode: 'anchor', primary: keyName, secondary: '', subBadge: 'I' } }
     });
 
     return {
       id: card.id,
       category: 'intervals',
+      answerSurface: 'circle',
       eyebrow: 'IN-KEY CHORD TONE',
       promptHtml: `In <b>${keyName}</b>: ${hopIv.name} <span class="q-badge">${ivSym}</span> of <b>${roman}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -840,6 +1363,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: bassMidiForPos(srcPos, 36) + hopIv.semitones
         }
       ],
+      revealExtraNodes: [
+        { pos: keyPos, mode: 'anchor', primary: keyName, subBadge: 'I' },
+        { pos: srcPos, mode: 'source', primary: chordRootName, subBadge: roman }
+      ],
       geometry: { type: 'two-hop', fromPos: keyPos, midPos: srcPos, toPos: targetPos },
       doneCenterPrimary: targetName,
       doneCenterSub: `${roman} = ${chordRootName}`,
@@ -847,7 +1374,160 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 4A. Relative Minor of a Major Key (+3 CW)
+  // -------------------------------------------------------------------------
+  // 6. CHORDS (Reverse Constellations, Slash Chords, Relatives & Key Sigs)
+  // -------------------------------------------------------------------------
+  if (kind === 'constellation_root') {
+    const { rootPos, quality, suffix, degrees } = params;
+    const rootSpelled = chooseBestRootSpelling(rootPos, degrees);
+    const chordName = formatChord(rootSpelled, suffix, notation);
+    const rootName = formatSpelledNote(rootSpelled, notation);
+
+    const chordMemberMap = {};
+    const polyPositions = [];
+    for (const sym of degrees) {
+      const sp = spellInterval(rootSpelled, sym);
+      polyPositions.push(sp.pos);
+      chordMemberMap[sp.pos] = {
+        mode: 'source',
+        primary: isBlind && sp.pos !== 0 ? '●' : formatSpelledNote(sp, notation),
+        secondary: '',
+        subBadge: '',
+        showEvenWhenBlind: true
+      };
+    }
+
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: chordMemberMap
+    });
+
+    const revealExtras = degrees
+      .filter((sym) => sym !== '1')
+      .map((sym) => {
+        const sp = spellInterval(rootSpelled, sym);
+        return {
+          pos: sp.pos,
+          mode: 'placed',
+          primary: formatSpelledNote(sp, notation),
+          subBadge: sym
+        };
+      });
+
+    return {
+      id: card.id,
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: `CHORD CONSTELLATION · ${quality.toUpperCase()}`,
+      promptHtml: `4 tones of a <b>${quality}</b> are lit · tap its <b>Root (1)</b>`,
+      staff: null,
+      fretboard: null,
+      initialGeometry: { type: 'polygon', positions: polyPositions },
+      nodes,
+      steps: [
+        {
+          targetPos: rootPos,
+          centerLabel: `Root?`,
+          centerSub: `${quality} shape`,
+          stepChipLabel: '1',
+          revealedPrimary: rootName,
+          revealedSub: '1',
+          midiToPlay: bassMidiForPos(rootPos, 35)
+        }
+      ],
+      revealExtraNodes: revealExtras,
+      geometry: { type: 'polygon', positions: polyPositions },
+      doneCenterPrimary: chordName,
+      doneCenterSub: degrees.join('·'),
+      explanation: `That ${quality} shape (${degrees.join('·')}) is anchored on Root ${rootName} (${chordName}).`
+    };
+  }
+
+  if (kind === 'slash_to_degree') {
+    const { rootPos, bassDeg, chordQual } = params;
+    const rootSpelled = chooseBestRootSpelling(rootPos, [bassDeg]);
+    const bassSpelled = spellInterval(rootSpelled, bassDeg);
+    const chordText = formatChord(rootSpelled, chordQual, notation);
+    const bassText = formatSpelledNote(bassSpelled, notation);
+    const slashSymbol = `${chordText}/${bassText}`;
+
+    const wheelRootPos = Math.floor(rand() * 12);
+    const iv = INTERVALS[bassDeg];
+    const targetPos = mod(wheelRootPos + iv.circleOffset, 12);
+    const nodes = makeLabeledDegreeNodes(wheelRootPos, null, isBlind);
+
+    return {
+      id: card.id,
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: 'SLASH CHORD · BASS ROLE',
+      promptHtml: `Playing <b>${slashSymbol}</b> · what degree is your bass note?`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos,
+          centerLabel: `/${bassText}`,
+          centerSub: `in ${chordText}`,
+          stepChipLabel: bassDeg,
+          revealedPrimary: bassDeg,
+          revealedSub: iv.name,
+          midiToPlay: bassMidiForPos(bassSpelled.pos, 34)
+        }
+      ],
+      geometry: { type: 'arc', fromPos: wheelRootPos, toPos: targetPos },
+      doneCenterPrimary: bassDeg,
+      doneCenterSub: slashSymbol,
+      explanation: `In ${slashSymbol}, ${bassText} is the ${iv.name} (${bassDeg}) of ${formatSpelledNote(rootSpelled, notation)}.`
+    };
+  }
+
+  if (kind === 'inversion_to_note') {
+    const { rootPos, invLabel, deg, qual } = params;
+    const rootSpelled = chooseBestRootSpelling(rootPos, [deg]);
+    const bassSpelled = spellInterval(rootSpelled, deg);
+    const chordText = formatChord(rootSpelled, qual, notation);
+    const bassText = formatSpelledNote(bassSpelled, notation);
+    const rootNote = formatSpelledNote(rootSpelled, notation);
+
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [rootPos]: { mode: 'anchor', primary: rootNote, secondary: '', subBadge: '1' } }
+    });
+
+    return {
+      id: card.id,
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: 'BASS INVERSION',
+      promptHtml: `Put <b>${chordText}</b> in <b>${invLabel}</b>`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos: bassSpelled.pos,
+          centerLabel: deg,
+          centerSub: `${chordText}/?`,
+          stepChipLabel: deg,
+          revealedPrimary: bassText,
+          revealedSub: deg,
+          midiToPlay: bassMidiForPos(bassSpelled.pos, 34)
+        }
+      ],
+      revealExtraNodes: isBlind
+        ? [{ pos: rootPos, mode: 'anchor', primary: rootNote, subBadge: '1' }]
+        : [],
+      geometry: { type: 'arc', fromPos: rootPos, toPos: bassSpelled.pos },
+      doneCenterPrimary: `${chordText}/${bassText}`,
+      doneCenterSub: `Bass = ${bassText}`,
+      explanation: `${invLabel} of ${chordText} puts ${bassText} (${deg}) in the bass: ${chordText}/${bassText}.`
+    };
+  }
+
   if (kind === 'rel_minor') {
     const { majorPos } = params;
     const rootSpelled = chooseBestRootSpelling(majorPos, ['6']);
@@ -856,15 +1536,20 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const minName = formatChord(relMinSpelled, 'm', notation);
     const targetPos = mod(majorPos + 3, 12);
 
-    const nodes = makeLabeledNoteNodes(notation, {
-      [majorPos]: { mode: 'anchor', primary: majName, secondary: '', subBadge: 'I' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [majorPos]: { mode: 'anchor', primary: majName, secondary: '', subBadge: 'I' } }
     });
 
     return {
       id: card.id,
-      category: 'relatives',
-      eyebrow: 'RELATIVE MINOR',
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: isBlind ? 'BLIND WHEEL · RELATIVE MINOR' : 'RELATIVE MINOR',
       promptHtml: `Relative minor <span class="q-badge">vi</span> of <b>${majName}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -878,6 +1563,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: bassMidiForPos(targetPos, 36)
         }
       ],
+      revealExtraNodes: isBlind
+        ? [{ pos: majorPos, mode: 'anchor', primary: majName, subBadge: 'I' }]
+        : [],
       geometry: { type: 'arc', fromPos: majorPos, toPos: targetPos },
       doneCenterPrimary: minName,
       doneCenterSub: '+3 steps CW',
@@ -885,7 +1573,6 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 4B. Relative Major of a Minor Key (-3 CCW)
   if (kind === 'rel_major') {
     const { minorPos } = params;
     const minSpelled = CIRCLE_POSITIONS[minorPos].minorAtThisPos;
@@ -894,15 +1581,20 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const minLabel = formatChord(minSpelled, 'm', notation);
     const majLabel = formatSpelledNote(majSpelled, notation);
 
-    const nodes = makeLabeledNoteNodes(notation, {
-      [minorPos]: { mode: 'anchor', primary: minLabel, secondary: '', subBadge: 'vi' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [minorPos]: { mode: 'anchor', primary: minLabel, secondary: '', subBadge: 'vi' } }
     });
 
     return {
       id: card.id,
-      category: 'relatives',
-      eyebrow: 'RELATIVE MAJOR',
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: isBlind ? 'BLIND WHEEL · RELATIVE MAJOR' : 'RELATIVE MAJOR',
       promptHtml: `Relative major <span class="q-badge">I</span> of <b>${minLabel}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -916,6 +1608,9 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: bassMidiForPos(majPos, 36)
         }
       ],
+      revealExtraNodes: isBlind
+        ? [{ pos: minorPos, mode: 'anchor', primary: minLabel, subBadge: 'vi' }]
+        : [],
       geometry: { type: 'arc', fromPos: minorPos, toPos: majPos },
       doneCenterPrimary: majLabel,
       doneCenterSub: '−3 steps CCW',
@@ -923,27 +1618,27 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 4C. Key Signature -> Major or Minor Key
   if (kind === 'key_sig') {
     const { count, sign, mode, targetPos } = params;
-    const sigText = count === 0 ? '0 ♯ / 0 ♭' : `${count}${sign}`;
+    const sigText = `${count}${sign}`;
     const isMinor = mode === 'minor';
+    const answerLabel = isMinor
+      ? formatChord(CIRCLE_POSITIONS[targetPos].minorAtThisPos, 'm', notation)
+      : getCanonicalNoteName(targetPos, notation, sign === '♭');
 
-    let answerLabel = '';
-    if (isMinor) {
-      answerLabel = formatChord(CIRCLE_POSITIONS[targetPos].minorAtThisPos, 'm', notation);
-    } else {
-      const preferFlat = sign === '♭';
-      answerLabel = getCanonicalNoteName(targetPos, notation, preferFlat);
-    }
-
-    const nodes = makeLabeledNoteNodes(notation);
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
 
     return {
       id: card.id,
-      category: 'relatives',
-      eyebrow: 'KEY SIGNATURE',
-      promptHtml: `Which <b>${isMinor ? 'minor' : 'major'}</b> key has <b>${sigText}</b>?`,
+      category: 'chords',
+      answerSurface: 'circle',
+      eyebrow: 'KEY SIGNATURE · CLÉ DE FA',
+      promptHtml: `Which <b>${isMinor ? 'minor' : 'major'}</b> key has this signature?`,
+      staff: {
+        notes: [],
+        keySig: { count, sign },
+        highlightFaLine: false
+      },
       fretboard: null,
       nodes,
       steps: [
@@ -961,18 +1656,89 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
       doneCenterPrimary: answerLabel,
       doneCenterSub: sigText,
       explanation: isMinor
-        ? `${answerLabel} has ${sigText} (relative minor sits +3 CW from its ${sigText} major key).`
-        : `Each clockwise step adds 1♯; each CCW step adds 1♭ → ${sigText} = ${answerLabel}.`
+        ? `${answerLabel} has ${sigText} (+3 CW from its relative major).`
+        : `${count} steps ${sign === '♯' ? 'CW' : 'CCW'} from ${getCanonicalNoteName(0, notation)} = ${answerLabel} (${sigText}).`
     };
   }
 
-  // 5A. Bass 7th Chord Arpeggios (1 -> 3/♭3 -> 5/♭5 -> 7/♭7)
+  // -------------------------------------------------------------------------
+  // 7. GROOVES (3->7 Voice-Leading, Stage Bridge, Arpeggios, Turnarounds)
+  // -------------------------------------------------------------------------
+  if (kind === 'voice_leading') {
+    const { keyPos, pair } = params;
+    const keySpelled = chooseBestRootSpelling(keyPos, ['2', '5', '4', '7', '3']);
+
+    let chordAName = '';
+    let chordBName = '';
+    let fromSpelled = null;
+    let toSpelled = null;
+
+    if (pair === 'ii-V') {
+      const iiSpelled = spellInterval(keySpelled, '2');
+      const vSpelled = spellInterval(keySpelled, '5');
+      chordAName = formatChord(iiSpelled, 'm7', notation);
+      chordBName = formatChord(vSpelled, '7', notation);
+      fromSpelled = spellInterval(keySpelled, '1'); // ♭7 of ii7 is 1!
+      toSpelled = spellInterval(keySpelled, '7');   // 3 of V7 is 7!
+    } else {
+      const vSpelled = spellInterval(keySpelled, '5');
+      chordAName = formatChord(vSpelled, '7', notation);
+      chordBName = formatChord(keySpelled, 'Maj7', notation);
+      fromSpelled = spellInterval(keySpelled, '4'); // ♭7 of V7 is 4!
+      toSpelled = spellInterval(keySpelled, '3'); // 3 of IMaj7 is 3!
+    }
+
+    const fromNote = formatSpelledNote(fromSpelled, notation);
+    const toNote = formatSpelledNote(toSpelled, notation);
+    const fromMidi = bassMidiForPos(fromSpelled.pos, 39);
+    const toMidi = fromMidi - 1; // Smooth 1-fret chromatic resolution downward!
+
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
+
+    return {
+      id: card.id,
+      category: 'bass',
+      answerSurface: 'circle',
+      eyebrow: 'WALKING BASS · 7 → 3 VOICE-LEADING',
+      promptHtml: `<b>${chordAName} → ${chordBName}</b>: tap <b>♭7</b> of ${chordAName} → <b>3</b> of ${chordBName}`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos: fromSpelled.pos,
+          centerLabel: '♭7',
+          centerSub: `of ${chordAName}`,
+          stepChipLabel: `♭7`,
+          revealedPrimary: fromNote,
+          revealedSub: '♭7',
+          midiToPlay: fromMidi
+        },
+        {
+          targetPos: toSpelled.pos,
+          centerLabel: '3',
+          centerSub: `of ${chordBName}`,
+          stepChipLabel: `3`,
+          revealedPrimary: toNote,
+          revealedSub: '3',
+          midiToPlay: toMidi
+        }
+      ],
+      geometry: { type: 'arc', fromPos: fromSpelled.pos, toPos: toSpelled.pos },
+      doneCenterPrimary: `${fromNote}→${toNote}`,
+      doneCenterSub: '−1 fret (+5 CW)',
+      explanation: `Smooth walking resolution: ♭7 of ${chordAName} (${fromNote}) drops 1 fret (+5 CW) into 3 of ${chordBName} (${toNote}).`
+    };
+  }
+
   if (kind === 'bass_arpeggio') {
-    const { rootPos, quality, suffix, degrees } = params;
+    const { rootPos, quality, suffix, degrees, crossNotation } = params;
     const rootSpelled = chooseBestRootSpelling(rootPos, degrees);
-    const chordName = formatChord(rootSpelled, suffix, notation);
+    const promptNot = crossNotation ? oppositeNotation(notation) : notation;
+    const promptChord = formatChord(rootSpelled, suffix, promptNot);
+    const localChord = formatChord(rootSpelled, suffix, notation);
     const baseMidi = bassMidiForPos(rootPos, 33);
-    const nodes = makeLabeledNoteNodes(notation);
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
 
     const steps = degrees.map((degSym) => {
       const iv = INTERVALS[degSym];
@@ -981,7 +1747,7 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
       return {
         targetPos: sp.pos,
         centerLabel: degSym,
-        centerSub: chordName,
+        centerSub: promptChord,
         stepChipLabel: degSym,
         revealedPrimary: nm,
         revealedSub: degSym,
@@ -994,50 +1760,56 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'bass',
-      eyebrow: `BASS ARPEGGIO · ${quality.toUpperCase()}`,
-      promptHtml: `Outline <b>${chordName}</b>`,
+      answerSurface: 'circle',
+      eyebrow: crossNotation
+        ? 'STAGE BRIDGE · REAL BOOK CHORD'
+        : `BASS ARPEGGIO · ${quality.toUpperCase()}`,
+      promptHtml: crossNotation
+        ? `Chart says <b>${promptChord}</b> · outline on Circle`
+        : `Outline <b>${localChord}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
       geometry: { type: 'polygon', positions: steps.map((s) => s.targetPos) },
-      doneCenterPrimary: chordName,
+      doneCenterPrimary: localChord,
       doneCenterSub: degrees.join('·'),
-      explanation: `${chordName}: ${noteSummary}.`
+      explanation: `${localChord}${crossNotation ? ` (${promptChord})` : ''}: ${noteSummary}.`
     };
   }
 
-  // 5B. Bass Turnarounds (ii -> V -> I, vi -> ii -> V -> I, I -> IV -> V)
   if (kind === 'bass_progression') {
     const { keyPos, prog } = params;
-    let seqSpecs = [];
-    if (prog === 'ii-V-I') {
-      seqSpecs = [
-        { deg: '2', roman: 'ii', qual: 'm7' },
-        { deg: '5', roman: 'V', qual: '7' },
-        { deg: '1', roman: 'I', qual: 'Maj7' }
-      ];
-    } else if (prog === 'vi-ii-V-I') {
-      seqSpecs = [
-        { deg: '6', roman: 'vi', qual: 'm7' },
-        { deg: '2', roman: 'ii', qual: 'm7' },
-        { deg: '5', roman: 'V', qual: '7' },
-        { deg: '1', roman: 'I', qual: 'Maj7' }
-      ];
-    } else {
-      seqSpecs = [
-        { deg: '1', roman: 'I', qual: '' },
-        { deg: '4', roman: 'IV', qual: '' },
-        { deg: '5', roman: 'V', qual: '' }
-      ];
-    }
+    const seqSpecs =
+      prog === 'ii-V-I'
+        ? [
+            { deg: '2', roman: 'ii', qual: 'm7' },
+            { deg: '5', roman: 'V', qual: '7' },
+            { deg: '1', roman: 'I', qual: 'Maj7' }
+          ]
+        : prog === 'vi-ii-V-I'
+        ? [
+            { deg: '6', roman: 'vi', qual: 'm7' },
+            { deg: '2', roman: 'ii', qual: 'm7' },
+            { deg: '5', roman: 'V', qual: '7' },
+            { deg: '1', roman: 'I', qual: 'Maj7' }
+          ]
+        : [
+            { deg: '1', roman: 'I', qual: '' },
+            { deg: '4', roman: 'IV', qual: '' },
+            { deg: '5', roman: 'V', qual: '' }
+          ];
 
     const rootSpelled = chooseBestRootSpelling(
       keyPos,
       seqSpecs.map((s) => s.deg)
     );
     const keyName = formatSpelledNote(rootSpelled, notation);
-    const nodes = makeLabeledNoteNodes(notation, {
-      [keyPos]: { mode: 'source', primary: keyName, secondary: '', subBadge: 'Key' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [keyPos]: { mode: 'source', primary: keyName, secondary: '', subBadge: 'Key' } }
     });
 
     const steps = seqSpecs.map((item) => {
@@ -1061,8 +1833,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'bass',
+      answerSurface: 'circle',
       eyebrow: 'BASS TURNAROUND',
       promptHtml: `Walk <b>${prog.replace(/-/g, ' → ')}</b> in <b>${keyName}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
@@ -1071,12 +1845,11 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
       doneCenterSub: keyName,
       explanation:
         prog === 'I-IV-V'
-          ? `I–IV–V hugs ${keyName} and its two immediate Circle neighbors: ${walkStr}.`
-          : `${prog} walks step-by-step counter-clockwise home to ${keyName}: ${walkStr}.`
+          ? `I–IV–V hugs ${keyName} and its two immediate neighbors: ${walkStr}.`
+          : `${prog} walks step-by-step CCW home to ${keyName}: ${walkStr}.`
     };
   }
 
-  // 5C. Tritone Substitution (♭II7 resolving to I)
   if (kind === 'bass_tritone_sub') {
     const { targetKeyPos } = params;
     const keySpelled = chooseBestRootSpelling(targetKeyPos, ['5', '♭2']);
@@ -1086,16 +1859,23 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const domName = formatChord(domSpelled, '7', notation);
     const subName = formatChord(subSpelled, '7', notation);
 
-    const nodes = makeLabeledNoteNodes(notation, {
-      [targetKeyPos]: { mode: 'anchor', primary: keyName, secondary: '', subBadge: 'I' },
-      [domSpelled.pos]: { mode: 'source', primary: formatSpelledNote(domSpelled, notation), secondary: '', subBadge: 'V7' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : {
+            [targetKeyPos]: { mode: 'anchor', primary: keyName, secondary: '', subBadge: 'I' },
+            [domSpelled.pos]: { mode: 'source', primary: formatSpelledNote(domSpelled, notation), secondary: '', subBadge: 'V7' }
+          }
     });
 
     return {
       id: card.id,
       category: 'bass',
+      answerSurface: 'circle',
       eyebrow: 'BASS TRITONE SUB',
       promptHtml: `Tritone sub <span class="q-badge">♭II7</span> resolving to <b>${keyName}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps: [
@@ -1104,19 +1884,23 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           centerLabel: '♭II7',
           centerSub: `sub for ${domName}`,
           stepChipLabel: '♭II7',
-          revealedPrimary: subName,
+          revealedPrimary: formatSpelledNote(subSpelled, notation),
+          revealedSecondary: '7',
           revealedSub: '♭II7',
           midiToPlay: bassMidiForPos(subSpelled.pos, 36)
         }
       ],
+      revealExtraNodes: [
+        { pos: targetKeyPos, mode: 'anchor', primary: keyName, subBadge: 'I' },
+        { pos: domSpelled.pos, mode: 'source', primary: formatSpelledNote(domSpelled, notation), subBadge: 'V7' }
+      ],
       geometry: { type: 'two-hop', fromPos: domSpelled.pos, midPos: subSpelled.pos, toPos: targetKeyPos },
       doneCenterPrimary: subName,
       doneCenterSub: `→ ${keyName}`,
-      explanation: `${subName} sits directly opposite ${domName} on the Circle and slides chromatically down into ${keyName}.`
+      explanation: `${subName} sits directly opposite ${domName} and slides 1 fret down into ${keyName}.`
     };
   }
 
-  // 5D. Minor Pentatonic Pocket (1 -> ♭3 -> 4 -> 5 -> ♭7)
   if (kind === 'bass_pentatonic') {
     const { rootPos } = params;
     const degrees = ['1', '♭3', '4', '5', '♭7'];
@@ -1124,18 +1908,17 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const rootName = formatSpelledNote(rootSpelled, notation);
     const rootMinLabel = formatChord(rootSpelled, 'm', notation);
     const baseMidi = bassMidiForPos(rootPos, 33);
-    const nodes = makeLabeledNoteNodes(notation);
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
 
     const steps = degrees.map((sym) => {
       const iv = INTERVALS[sym];
       const sp = spellInterval(rootSpelled, sym);
-      const nm = formatSpelledNote(sp, notation);
       return {
         targetPos: sp.pos,
         centerLabel: sym,
         centerSub: `${rootMinLabel} penta`,
         stepChipLabel: sym,
-        revealedPrimary: nm,
+        revealedPrimary: formatSpelledNote(sp, notation),
         revealedSub: sym,
         midiToPlay: baseMidi + iv.semitones
       };
@@ -1144,8 +1927,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'bass',
+      answerSurface: 'circle',
       eyebrow: 'MINOR PENTATONIC POCKET',
       promptHtml: `Play <b>${rootName}</b> minor pentatonic`,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
@@ -1156,7 +1941,6 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 5E. Dom7 Guide Tones (3 -> ♭7 across diameter)
   if (kind === 'bass_guidetones') {
     const { rootPos } = params;
     const degrees = ['3', '♭7'];
@@ -1164,20 +1948,22 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const rootName = formatSpelledNote(rootSpelled, notation);
     const chordName = formatChord(rootSpelled, '7', notation);
     const baseMidi = bassMidiForPos(rootPos, 35);
-    const nodes = makeLabeledNoteNodes(notation, {
-      [rootPos]: { mode: 'anchor', primary: rootName, secondary: '', subBadge: '1' }
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [rootPos]: { mode: 'anchor', primary: rootName, secondary: '', subBadge: '1' } }
     });
 
     const steps = degrees.map((sym) => {
       const iv = INTERVALS[sym];
       const sp = spellInterval(rootSpelled, sym);
-      const nm = formatSpelledNote(sp, notation);
       return {
         targetPos: sp.pos,
         centerLabel: sym,
         centerSub: `of ${chordName}`,
         stepChipLabel: sym,
-        revealedPrimary: nm,
+        revealedPrimary: formatSpelledNote(sp, notation),
         revealedSub: sym,
         midiToPlay: baseMidi + iv.semitones
       };
@@ -1186,8 +1972,10 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     return {
       id: card.id,
       category: 'bass',
+      answerSurface: 'circle',
       eyebrow: 'DOM7 GUIDE TONES',
       promptHtml: `Tap guide tones <span class="q-badge">3</span> → <span class="q-badge">♭7</span> of <b>${chordName}</b>`,
+      staff: null,
       fretboard: null,
       nodes,
       steps,
@@ -1198,29 +1986,34 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  // 6A. 4-String Bass Neck Dot -> Note on the Circle
+  // -------------------------------------------------------------------------
+  // 8. NECK (Bidirectional Fretboard <-> Circle)
+  // -------------------------------------------------------------------------
   if (kind === 'neck_to_note') {
     const { stringIndex, fret } = params;
     const info = getBassFretInfo(stringIndex, fret);
     const strLabel = notation === 'letter' ? info.stringLetter : info.stringSolfege;
     const noteName = getCanonicalNoteName(info.pos, notation);
-    const nodes = makeLabeledNoteNodes(notation);
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
+    const openStringPos = [4, 3, 2, 1][stringIndex] ?? 0;
 
     return {
       id: card.id,
       category: 'fretboard',
-      eyebrow: `BASS NECK · ${strLabel.toUpperCase()} STRING · FRET ${fret}`,
-      promptHtml: `Tap this bass note on the Circle`,
+      answerSurface: 'circle',
+      eyebrow: `NECK → CIRCLE · ${strLabel.toUpperCase()} FRET ${fret}`,
+      promptHtml: `Tap this bass fret on the Circle`,
+      staff: null,
       fretboard: {
+        mode: 'single',
         stringIndex,
-        fret,
-        badgeText: `${strLabel} · f${fret}`
+        fret
       },
       nodes,
       steps: [
         {
           targetPos: info.pos,
-          centerLabel: `${strLabel} · ${fret}`,
+          centerLabel: `${strLabel} · f${fret}`,
           centerSub: 'Tap note',
           stepChipLabel: noteName,
           revealedPrimary: noteName,
@@ -1228,14 +2021,13 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: info.midi
         }
       ],
-      geometry: { type: 'arc', fromPos: CIRCLE_POSITIONS[BASS_STRING_POS(stringIndex)].pos, toPos: info.pos },
+      geometry: { type: 'arc', fromPos: openStringPos, toPos: info.pos },
       doneCenterPrimary: noteName,
       doneCenterSub: `${strLabel} string f${fret}`,
       explanation: `${strLabel} string, fret ${fret} is ${noteName}.`
     };
   }
 
-  // 6B. 4-String Bass Neck Dot -> Harmonic Interval on the Circle
   if (kind === 'neck_to_interval') {
     const { stringIndex, fret, symbol } = params;
     const info = getBassFretInfo(stringIndex, fret);
@@ -1245,18 +2037,19 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     const targetSpelled = spellInterval(rootSpelled, symbol);
     const rootName = formatSpelledNote(rootSpelled, notation);
     const targetName = formatSpelledNote(targetSpelled, notation);
-
-    const nodes = makeLabeledNoteNodes(notation);
+    const nodes = makeNoteWheelNodes(notation, { isBlind });
 
     return {
       id: card.id,
       category: 'fretboard',
+      answerSurface: 'circle',
       eyebrow: `NECK → HARMONY · ${strLabel.toUpperCase()} FRET ${fret}`,
       promptHtml: `Tap the <b>${iv.name}</b> <span class="q-badge">${symbol}</span> of this fret`,
+      staff: null,
       fretboard: {
+        mode: 'single',
         stringIndex,
-        fret,
-        badgeText: `${strLabel} · f${fret}`
+        fret
       },
       nodes,
       steps: [
@@ -1270,6 +2063,7 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
           midiToPlay: info.midi + iv.semitones
         }
       ],
+      revealExtraNodes: [{ pos: info.pos, mode: 'anchor', primary: rootName, subBadge: `f${fret}` }],
       geometry: { type: 'arc', fromPos: info.pos, toPos: targetSpelled.pos },
       doneCenterPrimary: targetName,
       doneCenterSub: `${rootName} → ${targetName}`,
@@ -1277,10 +2071,82 @@ export function instantiateQuiz(card, notation = 'solfege', seed = null) {
     };
   }
 
-  throw new Error(`Unhandled quiz kind: ${kind}`);
-}
+  // 8C. Reverse: Circle -> Find Target Note Across ALL 4 Bass Strings!
+  if (kind === 'circle_to_all_strings') {
+    const { targetPos, harmonicFrom } = params;
+    const targetPc = posToPitchClass(targetPos);
 
-function BASS_STRING_POS(stringIndex) {
-  // Open string positions on the Circle: E=4, A=3, D=2, G=1
-  return [4, 3, 2, 1][stringIndex] ?? 0;
+    let targetName = getCanonicalNoteName(targetPos, notation);
+    let promptHtml = '';
+    const highlightMap = {};
+    let geo = { type: 'none' };
+
+    if (harmonicFrom) {
+      const { rootPos, sym } = harmonicFrom;
+      const iv = INTERVALS[sym];
+      const rootSpelled = chooseBestRootSpelling(rootPos, [sym]);
+      const tSpelled = spellInterval(rootSpelled, sym);
+      const rootName = formatSpelledNote(rootSpelled, notation);
+      targetName = formatSpelledNote(tSpelled, notation);
+
+      highlightMap[rootPos] = { mode: 'anchor', primary: rootName, subBadge: '1', showEvenWhenBlind: true };
+      highlightMap[targetPos] = {
+        mode: 'placed',
+        primary: isBlind ? '?' : targetName,
+        subBadge: sym,
+        showEvenWhenBlind: true
+      };
+      promptHtml = `Find <b>${iv.name} (${sym})</b> of <b>${rootName}</b> on all 4 strings`;
+      geo = { type: 'arc', fromPos: rootPos, toPos: targetPos };
+    } else {
+      highlightMap[targetPos] = {
+        mode: 'anchor',
+        primary: targetName,
+        subBadge: '4 strings',
+        showEvenWhenBlind: true
+      };
+      promptHtml = `Tap <b>${targetName}</b> on all <b>4 bass strings</b>`;
+    }
+
+    const nodes = makeNoteWheelNodes(notation, { isBlind, highlightMap });
+
+    // Compute canonical fret (0..11) on each of the 4 strings for explanation & Show button
+    const canonicalFrets = BASS_STRINGS.map((str) => {
+      const f = mod(targetPc - str.pc, 12);
+      const sLbl = notation === 'letter' ? str.letter : str.solfege;
+      return { stringIndex: str.index, fret: f, strLabel: sLbl, midi: str.openMidi + f };
+    });
+
+    const fretSummary = canonicalFrets.map((x) => `${x.strLabel}:${x.fret}`).join(' · ');
+
+    return {
+      id: card.id,
+      category: 'fretboard',
+      answerSurface: 'fretboard',
+      targetPos,
+      targetPc,
+      targetName,
+      canonicalFrets,
+      eyebrow: 'CIRCLE → ALL 4 BASS STRINGS',
+      promptHtml,
+      staff: null,
+      fretboard: {
+        mode: 'all4'
+      },
+      initialGeometry: geo,
+      nodes,
+      steps: canonicalFrets.map((cf) => ({
+        targetPos,
+        stepChipLabel: cf.strLabel,
+        revealedPrimary: targetName,
+        midiToPlay: cf.midi
+      })),
+      geometry: geo,
+      doneCenterPrimary: targetName,
+      doneCenterSub: '4 / 4 strings',
+      explanation: `${targetName} across the 4 strings: ${fretSummary}.`
+    };
+  }
+
+  throw new Error(`Unhandled quiz kind: ${kind}`);
 }

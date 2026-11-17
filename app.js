@@ -1,10 +1,12 @@
-// BassCircle — Main Application Controller
+// BassCircle v2 — Main Application Controller
 
 import {
   HARMONIC_LENSES,
   INTERVALS,
   mod,
   posToPitchClass,
+  pitchClassToPos,
+  getCanonicalNoteName,
   getBassFretInfo
 } from './theory.js';
 
@@ -19,6 +21,8 @@ import {
   renderMiniMasteryWheel,
   buildExplorerModel
 } from './circle.js';
+
+import { renderBassStaff, bassStaffStepToNote } from './staff.js';
 
 import {
   reviewCard,
@@ -57,6 +61,7 @@ const views = {
 };
 
 // Menu DOM
+const btnMenuBlind = document.getElementById('btn-menu-blind');
 const btnMenuNotation = document.getElementById('btn-menu-notation');
 const btnMenuSound = document.getElementById('btn-menu-sound');
 const deckCountEl = document.getElementById('deck-count');
@@ -74,13 +79,14 @@ const btnReset = document.getElementById('btn-reset');
 const btnConfirmReset = document.getElementById('btn-confirm-reset');
 
 // Quiz DOM
+const btnQuizBlind = document.getElementById('btn-quiz-blind');
 const btnQuizNotation = document.getElementById('btn-quiz-notation');
 const btnQuizSound = document.getElementById('btn-quiz-sound');
 const quizCounterEl = document.getElementById('quiz-counter');
 const quizEyebrowEl = document.getElementById('quiz-eyebrow');
 const quizStepsRowEl = document.getElementById('quiz-steps-row');
 const quizPromptEl = document.getElementById('quiz-prompt');
-const quizFretboardWrapEl = document.getElementById('quiz-fretboard-wrap');
+const quizMediaWrapEl = document.getElementById('quiz-media-wrap');
 const quizCircleMountEl = document.getElementById('quiz-circle-mount');
 const quizFooterActiveEl = document.getElementById('quiz-footer-active');
 const quizLiveHintEl = document.getElementById('quiz-live-hint');
@@ -116,13 +122,13 @@ const btnTheoryNext = document.getElementById('btn-theory-next');
 
 // --- APP STATE ---
 let allCards = [];
-let settings = { notation: 'solfege', sound: true };
+let settings = { notation: 'solfege', blindMode: 'auto', sound: true };
 let activeView = 'menu';
 let statusTimer = null;
 let resetConfirmTimer = null;
 
 // Quiz Session State
-let activeSessionCategory = null; // null = mixed, or category id
+let activeSessionCategory = null;
 let sessionQueue = [];
 let sessionIndex = 0;
 let sessionStats = { well: 0, approx: 0, not: 0 };
@@ -137,15 +143,19 @@ let isQuestionDone = false;
 let questionShownAt = 0;
 let autoAdvanceTimer = null;
 
-// Explorer State
+// Reverse Fretboard (Circle -> All 4 Strings) State
+let foundStringsSet = new Set();
+let foundFretsList = [];
+let neckWrongCell = null;
+let neckWrongTimer = null;
+
+// Explorer & Theory State
 let exploreRootPos = 0;
 let exploreLensKey = 'major';
-let exploreNeckMode = 'degree'; // 'degree' | 'note'
-
-// Theory State
+let exploreNeckMode = 'degree';
 let currentTheoryPage = 0;
 
-// --- CIRCLE COMPONENT INSTANCES ---
+// --- CIRCLE INSTANCES ---
 const quizCircle = new CircleView(quizCircleMountEl, {
   onTapPosition: (pos) => handleQuizCircleTap(pos),
   onTapHub: () => handleQuizHubTap()
@@ -156,17 +166,21 @@ const exploreCircle = new CircleView(exploreCircleMountEl, {
   onTapHub: () => playExploreChord()
 });
 
-// --- NAVIGATION & SETTINGS SYNC ---
+// --- NAVIGATION & SETTINGS ---
 
-function clearAutoAdvance() {
+function clearTimers() {
   if (autoAdvanceTimer) {
     clearTimeout(autoAdvanceTimer);
     autoAdvanceTimer = null;
   }
+  if (neckWrongTimer) {
+    clearTimeout(neckWrongTimer);
+    neckWrongTimer = null;
+  }
 }
 
 function showView(name) {
-  clearAutoAdvance();
+  clearTimers();
   cancelResetConfirm();
   activeView = name;
   for (const [key, el] of Object.entries(views)) {
@@ -184,11 +198,23 @@ function showMenuStatus(msg) {
   }
 }
 
+function formatBlindModeLabel(mode) {
+  if (mode === 'blind') return 'Blind';
+  if (mode === 'labels') return 'Labels';
+  return 'Auto';
+}
+
 function syncSettingsUI() {
   const isSol = settings.notation !== 'letter';
   btnMenuNotation.textContent = isSol ? 'Do Ré Mi' : 'C D E';
   btnQuizNotation.textContent = isSol ? 'Do Ré Mi' : 'C D E';
   btnExploreNotation.textContent = isSol ? 'Do' : 'C';
+
+  const blindLabel = formatBlindModeLabel(settings.blindMode);
+  for (const btn of [btnMenuBlind, btnQuizBlind]) {
+    btn.textContent = blindLabel;
+    btn.classList.toggle('is-active-blind', settings.blindMode === 'blind');
+  }
 
   setSoundEnabled(settings.sound);
   for (const btn of [btnMenuSound, btnQuizSound]) {
@@ -200,6 +226,26 @@ function syncSettingsUI() {
   }
 }
 
+async function cycleBlindMode() {
+  unlockAudio();
+  const order = ['auto', 'blind', 'labels'];
+  const next = order[(order.indexOf(settings.blindMode) + 1) % order.length];
+  settings = await saveSettings({ blindMode: next });
+  syncSettingsUI();
+
+  if (activeView === 'menu') {
+    const desc =
+      next === 'blind'
+        ? 'Blind Wheel: only 12h anchor shown'
+        : next === 'labels'
+        ? 'Labels always visible on Circle'
+        : 'Auto: familiar drills hide labels automatically';
+    showMenuStatus(desc);
+  } else if (activeView === 'quiz' && sessionQueue[sessionIndex]) {
+    rerenderCurrentQuizSettings();
+  }
+}
+
 async function toggleNotation() {
   unlockAudio();
   const nextNotation = settings.notation === 'letter' ? 'solfege' : 'letter';
@@ -207,7 +253,7 @@ async function toggleNotation() {
   syncSettingsUI();
 
   if (activeView === 'quiz' && sessionQueue[sessionIndex]) {
-    rerenderCurrentQuizNotation();
+    rerenderCurrentQuizSettings();
   } else if (activeView === 'explore') {
     renderExplorer();
   } else if (activeView === 'theory') {
@@ -226,7 +272,7 @@ async function toggleSound() {
   }
 }
 
-// --- HOME MASTERY VISUALIZATIONS ---
+// --- HOME MASTERY DASHBOARD ---
 
 function getCardCirclePositions(card) {
   const def = getDefinitionById(card.id);
@@ -239,6 +285,9 @@ function getCardCirclePositions(card) {
   if (typeof p.majorPos === 'number') return [mod(p.majorPos, 12)];
   if (typeof p.minorPos === 'number') return [mod(p.minorPos, 12)];
   if (typeof p.targetKeyPos === 'number') return [mod(p.targetKeyPos, 12)];
+  if (typeof p.step === 'number') {
+    return [bassStaffStepToNote(p.step, p.acc || 0).pos];
+  }
   if (typeof p.stringIndex === 'number' && typeof p.fret === 'number') {
     return [getBassFretInfo(p.stringIndex, p.fret).pos];
   }
@@ -251,7 +300,6 @@ function renderMasteryDashboard(cards) {
   const practiced = cards.filter((c) => (c.reps || 0) > 0).length;
   deckCountEl.textContent = `${practiced} / ${total}`;
 
-  // 1. Mini 12-Sector Circle Mastery Wheel
   const sums = new Array(12).fill(0);
   const counts = new Array(12).fill(0);
   const scores = cards.map((c) => {
@@ -266,7 +314,6 @@ function renderMasteryDashboard(cards) {
   const sectorScores = sums.map((sum, idx) => (counts[idx] > 0 ? sum / counts[idx] : 0));
   renderMiniMasteryWheel(miniWheelSvg, sectorScores);
 
-  // 2. Smooth Gaussian KDE Knowledge Distribution Curve
   if (total === 0) {
     curveAreaEl.setAttribute('d', '');
     curveLineEl.setAttribute('d', '');
@@ -319,13 +366,27 @@ async function refreshMenu() {
   renderMasteryDashboard(allCards);
 }
 
-// --- INTERACTIVE CIRCLE QUIZ FLOW ---
+// --- QUIZ RENDERING & INTERACTION ---
 
 function renderStepChips() {
   quizStepsRowEl.textContent = '';
-  if (!currentSpec || currentSpec.steps.length <= 1) return;
+  if (!currentSpec) return;
 
-  // Up to 6 chips shown directly; for 7+ steps show compact progress pill
+  if (currentSpec.answerSurface === 'fretboard') {
+    currentSpec.steps.forEach((st, sIdx) => {
+      const chip = document.createElement('span');
+      chip.className = 'step-chip';
+      if (foundStringsSet.has(sIdx) || isQuestionDone) {
+        chip.classList.add('is-done');
+      }
+      chip.textContent = st.stepChipLabel;
+      quizStepsRowEl.appendChild(chip);
+    });
+    return;
+  }
+
+  if (currentSpec.steps.length <= 1) return;
+
   if (currentSpec.steps.length > 6) {
     const chip = document.createElement('span');
     chip.className = 'step-chip is-current';
@@ -350,28 +411,86 @@ function renderStepChips() {
   });
 }
 
-function renderQuizPromptAndNeck() {
+function renderQuizMedia() {
+  if (!currentSpec) return;
+
+  // 1. Clé de Fa Engraved Staff
+  if (currentSpec.staff) {
+    quizMediaWrapEl.classList.remove('is-gone');
+    const updatedNotes = currentSpec.staff.notes.map((n, idx) => {
+      let state = n.state;
+      if (currentSpec.staff.notes.length > 1) {
+        if (idx < currentStepIndex || isQuestionDone) state = 'done';
+        else if (idx === currentStepIndex) state = 'active';
+        else state = 'default';
+      } else if (isQuestionDone) {
+        state = 'done';
+      }
+      return { ...n, state };
+    });
+
+    renderBassStaff(quizMediaWrapEl, {
+      notes: updatedNotes,
+      keySig: currentSpec.staff.keySig,
+      highlightFaLine: currentSpec.staff.highlightFaLine
+    });
+    return;
+  }
+
+  // 2. 4-String Bass Fretboard (Forward singleDot OR Reverse all4 interactive)
+  if (currentSpec.fretboard) {
+    quizMediaWrapEl.classList.remove('is-gone');
+    if (currentSpec.fretboard.mode === 'all4') {
+      renderBassFretboard(quizMediaWrapEl, {
+        notation: settings.notation,
+        interactiveQuiz: {
+          foundFrets: foundFretsList.map((it) => ({
+            ...it,
+            label: currentSpec.targetName
+          })),
+          wrongCell: neckWrongCell
+        },
+        onTapFret: (cell) => handleReverseNeckTap(cell)
+      });
+    } else {
+      renderBassFretboard(quizMediaWrapEl, {
+        notation: settings.notation,
+        singleDot: {
+          stringIndex: currentSpec.fretboard.stringIndex,
+          fret: currentSpec.fretboard.fret,
+          revealedLabel: isQuestionDone
+            ? getCanonicalNoteName(
+                getBassFretInfo(
+                  currentSpec.fretboard.stringIndex,
+                  currentSpec.fretboard.fret
+                ).pos,
+                settings.notation
+              )
+            : null
+        }
+      });
+    }
+    return;
+  }
+
+  quizMediaWrapEl.classList.add('is-gone');
+  quizMediaWrapEl.textContent = '';
+}
+
+function renderQuizPromptHeader() {
   quizEyebrowEl.textContent = currentSpec.eyebrow;
   quizPromptEl.innerHTML = currentSpec.promptHtml;
   renderStepChips();
+  renderQuizMedia();
+}
 
-  if (currentSpec.fretboard) {
-    quizFretboardWrapEl.classList.remove('is-gone');
-    renderBassFretboard(quizFretboardWrapEl, {
-      notation: settings.notation,
-      singleDot: {
-        stringIndex: currentSpec.fretboard.stringIndex,
-        fret: currentSpec.fretboard.fret
-      }
-    });
-  } else {
-    quizFretboardWrapEl.classList.add('is-gone');
-    quizFretboardWrapEl.textContent = '';
-  }
+function playCurrentEarPrompt() {
+  if (!currentSpec?.audioPromptMidis) return;
+  playBassSequence(currentSpec.audioPromptMidis, currentSpec.audioStepSec || 0.42);
 }
 
 function loadCurrentQuizQuestion() {
-  clearAutoAdvance();
+  clearTimers();
   const card = sessionQueue[sessionIndex];
   if (!card) {
     finishQuizSession();
@@ -379,84 +498,125 @@ function loadCurrentQuizQuestion() {
   }
 
   currentQuestionSeed = Math.floor(Math.random() * 2147483640) + 1;
-  currentSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed);
+  currentSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed, {
+    blindMode: settings.blindMode
+  });
   currentNodesState = currentSpec.nodes.map((n) => ({ ...n }));
   currentStepIndex = 0;
   mistakesOnCurrent = 0;
   wasRevealed = false;
   isQuestionDone = false;
+  foundStringsSet = new Set();
+  foundFretsList = [];
+  neckWrongCell = null;
   questionShownAt = Date.now();
 
   quizCounterEl.textContent = `${sessionIndex + 1} / ${sessionQueue.length}`;
-  renderQuizPromptAndNeck();
+  renderQuizPromptHeader();
 
   quizCircle.setSectors([]);
   quizCircle.clearGeometry();
+  if (currentSpec.initialGeometry) {
+    quizCircle.renderGeometry(currentSpec.initialGeometry);
+  }
   quizCircle.setNodes(currentNodesState);
 
-  const firstStep = currentSpec.steps[0];
-  quizCircle.setHub(firstStep.centerLabel, firstStep.centerSub, {
-    interactive: false,
-    done: false
-  });
-
-  quizLiveHintEl.textContent =
-    currentSpec.steps.length > 1
+  if (currentSpec.answerSurface === 'fretboard') {
+    quizCircle.setHub('0 / 4', 'Tap 4 strings', { interactive: false, done: false });
+    quizLiveHintEl.textContent = 'Tap all 4 strings on the bass neck above';
+  } else {
+    const firstStep = currentSpec.steps[0];
+    const isEar = Boolean(currentSpec.audioPromptMidis);
+    quizCircle.setHub(firstStep.centerLabel, firstStep.centerSub, {
+      interactive: isEar,
+      done: false
+    });
+    quizLiveHintEl.textContent = isEar
+      ? 'Tap center hub to replay · tap Circle to answer'
+      : currentSpec.steps.length > 1
       ? `Tap ${firstStep.centerLabel} on the Circle`
       : 'Tap the Circle to answer';
+  }
+
   quizFooterActiveEl.classList.remove('is-gone');
   quizFooterDoneEl.classList.add('is-gone');
 
-  // On fretboard questions, subtly pluck the bass fret on question entry so ear & eye connect!
-  if (currentSpec.fretboard) {
+  // Auto-play audio cues on Ear drills and Forward Fretboard drills
+  if (currentSpec.audioPromptMidis) {
+    playCurrentEarPrompt();
+  } else if (currentSpec.fretboard?.mode === 'single') {
     const info = getBassFretInfo(
       currentSpec.fretboard.stringIndex,
       currentSpec.fretboard.fret
     );
-    playBassNote(info.midi, { duration: 0.55, gainScale: 0.85 });
+    playBassNote(info.midi, { duration: 0.52, gainScale: 0.85 });
   }
 }
 
-/**
- * Live-updates labels on the current quiz question if user switches Do Ré Mi <-> C D E mid-drill.
- */
-function rerenderCurrentQuizNotation() {
+function rerenderCurrentQuizSettings() {
   const card = sessionQueue[sessionIndex];
   if (!card) return;
 
-  const updatedSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed);
+  const updatedSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed, {
+    blindMode: settings.blindMode
+  });
   currentSpec = updatedSpec;
-  renderQuizPromptAndNeck();
+  renderQuizPromptHeader();
 
   currentNodesState = updatedSpec.nodes.map((baseNode, pos) => {
-    // Re-apply any already completed steps
-    for (let i = 0; i < currentStepIndex; i++) {
-      const st = updatedSpec.steps[i];
-      if (st.targetPos === pos) {
-        return {
-          ...baseNode,
-          mode: isQuestionDone && i === updatedSpec.steps.length - 1 ? 'correct' : 'placed',
-          primary: st.revealedPrimary,
-          secondary: st.revealedSecondary || '',
-          subBadge: st.revealedSub || baseNode.subBadge
-        };
+    if (updatedSpec.answerSurface !== 'fretboard') {
+      for (let i = 0; i < currentStepIndex; i++) {
+        const st = updatedSpec.steps[i];
+        if (st.targetPos === pos) {
+          return {
+            ...baseNode,
+            mode: isQuestionDone && i === updatedSpec.steps.length - 1 ? 'correct' : 'placed',
+            primary: st.revealedPrimary,
+            secondary: st.revealedSecondary || '',
+            subBadge: st.revealedSub || baseNode.subBadge
+          };
+        }
       }
+    } else if (isQuestionDone && pos === updatedSpec.targetPos) {
+      return {
+        ...baseNode,
+        mode: 'correct',
+        primary: updatedSpec.targetName,
+        subBadge: '4/4'
+      };
     }
     return { ...baseNode };
   });
 
-  quizCircle.setNodes(currentNodesState);
+  if (isQuestionDone && Array.isArray(updatedSpec.revealExtraNodes)) {
+    for (const ex of updatedSpec.revealExtraNodes) {
+      currentNodesState[ex.pos] = {
+        ...currentNodesState[ex.pos],
+        mode: ex.mode || 'anchor',
+        primary: ex.primary,
+        secondary: '',
+        subBadge: ex.subBadge || ''
+      };
+    }
+  }
 
+  quizCircle.setNodes(currentNodesState);
   if (isQuestionDone) {
+    quizCircle.renderGeometry(updatedSpec.geometry);
     quizCircle.setHub(updatedSpec.doneCenterPrimary, updatedSpec.doneCenterSub, {
       interactive: true,
       done: true
     });
     quizExplanationEl.textContent = updatedSpec.explanation;
+  } else if (updatedSpec.answerSurface === 'fretboard') {
+    quizCircle.setHub(`${foundStringsSet.size} / 4`, 'Tap 4 strings', {
+      interactive: false,
+      done: false
+    });
   } else {
     const step = updatedSpec.steps[currentStepIndex];
     quizCircle.setHub(step.centerLabel, step.centerSub, {
-      interactive: false,
+      interactive: Boolean(updatedSpec.audioPromptMidis),
       done: false
     });
   }
@@ -464,7 +624,22 @@ function rerenderCurrentQuizNotation() {
 
 async function completeCurrentQuestion() {
   isQuestionDone = true;
+
+  if (Array.isArray(currentSpec.revealExtraNodes)) {
+    for (const ex of currentSpec.revealExtraNodes) {
+      currentNodesState[ex.pos] = {
+        ...currentNodesState[ex.pos],
+        mode: ex.mode || 'anchor',
+        primary: ex.primary,
+        secondary: '',
+        subBadge: ex.subBadge || ''
+      };
+    }
+    quizCircle.setNodes(currentNodesState);
+  }
+
   renderStepChips();
+  renderQuizMedia();
   quizCircle.renderGeometry(currentSpec.geometry);
   quizCircle.setHub(currentSpec.doneCenterPrimary, currentSpec.doneCenterSub, {
     interactive: true,
@@ -475,7 +650,6 @@ async function completeCurrentQuestion() {
   quizFooterActiveEl.classList.add('is-gone');
   quizFooterDoneEl.classList.remove('is-gone');
 
-  // Compute objective FSRS rating from tap accuracy & hesitation
   const elapsedMs = Date.now() - questionShownAt;
   let rating = 3;
   if (wasRevealed || mistakesOnCurrent >= 2) {
@@ -483,7 +657,7 @@ async function completeCurrentQuestion() {
     sessionStats.not += 1;
   } else if (
     mistakesOnCurrent === 1 ||
-    (currentSpec.steps.length === 1 && elapsedMs > 9500)
+    (currentSpec.steps.length === 1 && elapsedMs > 10500)
   ) {
     rating = 2;
     sessionStats.approx += 1;
@@ -499,13 +673,81 @@ async function completeCurrentQuestion() {
     await saveCardProgress(updatedCard);
   }
 
-  // Flow-state auto-advance when nailed cleanly on first try; pause to study when missed/revealed!
   if (mistakesOnCurrent === 0 && !wasRevealed) {
-    clearAutoAdvance();
+    clearTimers();
     autoAdvanceTimer = setTimeout(() => {
       autoAdvanceTimer = null;
       advanceToNextQuestion();
     }, 940);
+  }
+}
+
+function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
+  unlockAudio();
+  if (!currentSpec || currentSpec.answerSurface !== 'fretboard') return;
+  if (isQuestionDone) {
+    advanceToNextQuestion();
+    return;
+  }
+
+  if (pc === currentSpec.targetPc) {
+    if (!foundStringsSet.has(stringIndex)) {
+      foundStringsSet.add(stringIndex);
+      foundFretsList.push({
+        stringIndex,
+        fret,
+        label: currentSpec.targetName
+      });
+    } else if (!foundFretsList.some((x) => x.stringIndex === stringIndex && x.fret === fret)) {
+      // User also tapped octave 0/12 on an already-found string
+      foundFretsList.push({
+        stringIndex,
+        fret,
+        label: currentSpec.targetName
+      });
+    }
+
+    neckWrongCell = null;
+    playBassNote(midi, { duration: 0.52 });
+    quizCircle.pulseNode(currentSpec.targetPos);
+    renderStepChips();
+    renderQuizMedia();
+
+    if (foundStringsSet.size >= 4) {
+      currentNodesState[currentSpec.targetPos] = {
+        ...currentNodesState[currentSpec.targetPos],
+        mode: 'correct',
+        primary: currentSpec.targetName,
+        secondary: '',
+        subBadge: '4/4'
+      };
+      quizCircle.updateSingleNode(
+        currentSpec.targetPos,
+        currentNodesState[currentSpec.targetPos]
+      );
+      completeCurrentQuestion();
+    } else {
+      quizCircle.setHub(`${foundStringsSet.size} / 4`, 'Strings found', {
+        interactive: false,
+        done: false
+      });
+    }
+  } else {
+    mistakesOnCurrent += 1;
+    playMutedThud();
+    const tappedNote = getCanonicalNoteName(pitchClassToPos(pc), settings.notation);
+    neckWrongCell = { stringIndex, fret, label: tappedNote };
+    renderQuizMedia();
+    quizLiveHintEl.textContent = `That fret is ${tappedNote} — adjust along the string`;
+
+    if (neckWrongTimer) clearTimeout(neckWrongTimer);
+    neckWrongTimer = setTimeout(() => {
+      neckWrongTimer = null;
+      neckWrongCell = null;
+      if (!isQuestionDone && activeView === 'quiz') {
+        renderQuizMedia();
+      }
+    }, 520);
   }
 }
 
@@ -515,6 +757,16 @@ function handleQuizCircleTap(pos) {
 
   if (isQuestionDone) {
     advanceToNextQuestion();
+    return;
+  }
+
+  // If this is a Circle -> All 4 Strings fretboard drill, tapping the highlighted Circle node plucks its reference pitch
+  if (currentSpec.answerSurface === 'fretboard') {
+    if (pos === currentSpec.targetPos) {
+      playBassNote(36 + currentSpec.targetPc, { duration: 0.5 });
+      quizCircle.pulseNode(pos);
+    }
+    quizLiveHintEl.textContent = 'Tap the 4 strings on the bass neck above!';
     return;
   }
 
@@ -536,7 +788,7 @@ function handleQuizCircleTap(pos) {
     quizCircle.pulseNode(pos);
 
     if (currentSpec.steps.length === 1 && currentSpec.rootMidiPreview !== undefined) {
-      playBassSequence([currentSpec.rootMidiPreview, step.midiToPlay], 0.11);
+      playBassSequence([currentSpec.rootMidiPreview, step.midiToPlay], 0.12);
     } else {
       playBassNote(step.midiToPlay, { duration: 0.52 });
     }
@@ -547,9 +799,10 @@ function handleQuizCircleTap(pos) {
       completeCurrentQuestion();
     } else {
       renderStepChips();
+      if (currentSpec.staff) renderQuizMedia();
       const nextStep = currentSpec.steps[currentStepIndex];
       quizCircle.setHub(nextStep.centerLabel, nextStep.centerSub, {
-        interactive: false,
+        interactive: Boolean(currentSpec.audioPromptMidis),
         done: false
       });
       quizLiveHintEl.textContent = `Next: tap ${nextStep.centerLabel}`;
@@ -572,6 +825,10 @@ function handleQuizHubTap() {
   unlockAudio();
   if (isQuestionDone) {
     advanceToNextQuestion();
+    return;
+  }
+  if (currentSpec?.audioPromptMidis) {
+    playCurrentEarPrompt();
   }
 }
 
@@ -579,6 +836,29 @@ function handleRevealAnswer() {
   unlockAudio();
   if (!currentSpec || isQuestionDone) return;
   wasRevealed = true;
+
+  if (currentSpec.answerSurface === 'fretboard') {
+    foundStringsSet = new Set([0, 1, 2, 3]);
+    foundFretsList = currentSpec.canonicalFrets.map((cf) => ({
+      stringIndex: cf.stringIndex,
+      fret: cf.fret,
+      label: currentSpec.targetName
+    }));
+    currentNodesState[currentSpec.targetPos] = {
+      ...currentNodesState[currentSpec.targetPos],
+      mode: 'correct',
+      primary: currentSpec.targetName,
+      secondary: '',
+      subBadge: '4/4'
+    };
+    quizCircle.setNodes(currentNodesState);
+    playBassSequence(
+      currentSpec.canonicalFrets.map((cf) => cf.midi),
+      0.13
+    );
+    completeCurrentQuestion();
+    return;
+  }
 
   const remainingMidis = [];
   for (let i = currentStepIndex; i < currentSpec.steps.length; i++) {
@@ -602,7 +882,7 @@ function handleRevealAnswer() {
 }
 
 function advanceToNextQuestion() {
-  clearAutoAdvance();
+  clearTimers();
   sessionIndex += 1;
   if (sessionIndex >= sessionQueue.length) {
     finishQuizSession();
@@ -612,7 +892,7 @@ function advanceToNextQuestion() {
 }
 
 function finishQuizSession() {
-  clearAutoAdvance();
+  clearTimers();
   const totalAnswered =
     sessionStats.well + sessionStats.approx + sessionStats.not;
 
@@ -632,13 +912,20 @@ function finishQuizSession() {
 
 async function startQuizSession(category = null) {
   unlockAudio();
+  // If user explicitly chooses the Ear mode while muted, turn sound on so they can hear!
+  if (category === 'ear' && !settings.sound) {
+    settings = await saveSettings({ sound: true });
+    syncSettingsUI();
+  }
+
   allCards = await syncDeckAndGetAllCards();
   activeSessionCategory = category;
 
-  const sessionSize = category ? 12 : 18;
+  const sessionSize = category ? 12 : 16;
   sessionQueue = buildQuizSession(allCards, {
     category,
     sessionSize,
+    includeEar: settings.sound,
     now: Date.now()
   });
 
@@ -732,7 +1019,7 @@ function openExploreView() {
   renderExplorer();
 }
 
-// --- 5-PAGE THEORY CHEAT SHEET ---
+// --- 6-PAGE THEORY CHEAT SHEET ---
 
 function renderTheoryPages() {
   const pages = getTheoryPages(settings.notation);
@@ -890,6 +1177,9 @@ async function confirmResetProgress() {
 }
 
 // --- EVENT LISTENERS ---
+
+btnMenuBlind.addEventListener('click', cycleBlindMode);
+btnQuizBlind.addEventListener('click', cycleBlindMode);
 
 btnMenuNotation.addEventListener('click', toggleNotation);
 btnQuizNotation.addEventListener('click', toggleNotation);

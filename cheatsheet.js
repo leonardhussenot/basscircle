@@ -1,4 +1,4 @@
-// 5-page minimalist Circle of Fifths & Bassist Cheat Sheet
+// 6-page minimalist Circle of Fifths, Clé de Fa & Bassist Cheat Sheet
 
 export function getTheoryPages(notation = 'solfege') {
   const isSol = notation !== 'letter';
@@ -6,13 +6,61 @@ export function getTheoryPages(notation = 'solfege') {
 
   return [
     {
+      title: 'Clé de Fa (𝄢) Guide',
+      html: `
+        <div class="g-card g-compact-list">
+          <h3 class="g-heading">Landmarks <span class="g-sub">(From Clé d’Ut to Clé de Fa)</span></h3>
+          <div><b>1st Ledger Above = ${n('Do', 'C')}4 (Middle C)</b> — Your exact <i>Clé d’Ut</i> reference C sits right on the 1st ledger line above the Clé de Fa staff!</div>
+          <div><b>4th Line = ${n('Fa', 'F')}</b> — Framed between the two <b>𝄢</b> dots (${n('Ré', 'D')} string, fret 3).</div>
+          <div><b>Middle Line (3rd) = ${n('Ré', 'D')}</b> — Open <b>${n('Ré', 'D')}</b> string!</div>
+        </div>
+
+        <div class="g-card">
+          <h3 class="g-heading">4 Open Bass Strings on Clé de Fa</h3>
+          <table class="g-table g-table-left">
+            <thead>
+              <tr><th>Staff Position</th><th>Open Note</th><th>Circle</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>4th Space</b> (top space)</td>
+                <td class="cell-accent"><b>${n('Sol', 'G')}</b> string</td>
+                <td>1h</td>
+              </tr>
+              <tr>
+                <td><b>3rd Line</b> (middle line)</td>
+                <td class="cell-accent"><b>${n('Ré', 'D')}</b> string</td>
+                <td>2h</td>
+              </tr>
+              <tr>
+                <td><b>1st Space</b> (bottom space)</td>
+                <td class="cell-accent"><b>${n('La', 'A')}</b> string</td>
+                <td>3h</td>
+              </tr>
+              <tr>
+                <td><b>1st Ledger Below</b></td>
+                <td class="cell-accent"><b>${n('Mi', 'E')}</b> string</td>
+                <td>4h</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="g-card g-compact-list">
+          <h3 class="g-heading">Lines &amp; Spaces Bottom → Top</h3>
+          <div><b>5 Lines</b> — <b>${n('Sol · Si · Ré · Fa · La', 'G · B · D · F · A')}</b></div>
+          <div><b>4 Spaces</b> — <b>${n('La · Do · Mi · Sol', 'A · C · E · G')}</b></div>
+        </div>
+      `
+    },
+    {
       title: 'Circle Geometry',
       html: `
         <div class="g-card">
           <h3 class="g-heading">Clock Steps from Root <span class="g-sub">(1 = any position)</span></h3>
           <table class="g-table">
             <thead>
-              <tr><th>Step</th><th>CW (+5ths)</th><th>CCW (+4ths)</th></tr>
+              <tr><th>Step</th><th>CW (+5ths / Bright)</th><th>CCW (+4ths / Warm)</th></tr>
             </thead>
             <tbody>
               <tr>
@@ -37,8 +85,8 @@ export function getTheoryPages(notation = 'solfege') {
               </tr>
               <tr>
                 <th>5 steps</th>
-                <td><b>7</b> · Major 7th</td>
-                <td><b>♭2</b> · Phrygian / SubV</td>
+                <td class="cell-accent"><b>7</b> · −1 fret below!</td>
+                <td class="cell-accent"><b>♭2</b> · +1 fret above!</td>
               </tr>
               <tr>
                 <th>6 (opp.)</th>
@@ -50,10 +98,10 @@ export function getTheoryPages(notation = 'solfege') {
 
         <div class="g-card g-compact-list">
           <h3 class="g-heading">Contiguous Scale Arcs</h3>
-          <div><b>Major Scale (7 slices)</b> — From <b>4</b> (−1 CCW) through <b>1, 5, 2, 6, 3, 7</b> (+5 CW).</div>
-          <div><b>Dorian Funk Mode (7 slices)</b> — Perfectly symmetric around <b>1</b>: <b>♭3, ♭7, 4, [1], 5, 2, 6</b> (−3 to +3!).</div>
-          <div><b>Natural Minor (7 slices)</b> — Shifted 3 steps CCW: <b>♭6, ♭3, ♭7, 4, 1, 5, 2</b> (−4 to +2).</div>
-          <div><b>Minor Pentatonic (5 slices)</b> — Tight 5-note pocket: <b>♭3, ♭7, 4, 1, 5</b>.</div>
+          <div><b>Major (7 slices)</b> — <b>4</b> (−1 CCW) through <b>1, 5, 2, 6, 3, 7</b> (+5 CW).</div>
+          <div><b>Dorian Funk (7 slices)</b> — Mirror-symmetric around <b>1</b>: <b>♭3, ♭7, 4, [1], 5, 2, 6</b> (−3 to +3!).</div>
+          <div><b>Natural Minor (7 slices)</b> — <b>♭6, ♭3, ♭7, 4, 1, 5, 2</b> (−4 to +2).</div>
+          <div><b>Minor Pentatonic (5 slices)</b> — <b>♭3, ♭7, 4, 1, 5</b>.</div>
         </div>
       `
     },
@@ -61,7 +109,7 @@ export function getTheoryPages(notation = 'solfege') {
       title: 'Chords & Degree Math',
       html: `
         <div class="g-card">
-          <h3 class="g-heading">7th Chord Shapes on the Wheel</h3>
+          <h3 class="g-heading">7th Chord Constellations</h3>
           <table class="g-table g-table-left">
             <thead>
               <tr><th>Chord</th><th>Degrees</th><th>Circle Offsets</th></tr>
@@ -137,44 +185,40 @@ export function getTheoryPages(notation = 'solfege') {
             <span><b>4♭</b> ${n('Ré♭', 'D♭')}</span>
             <span><b>5♭</b> ${n('Sol♭', 'G♭')}</span>
           </div>
-          <div class="g-divider"></div>
-          <div class="g-muted-line"><b>Quick Key Trick</b> — <i>N</i> steps CW from ${n('Do', 'C')} = <i>N</i>♯ · <i>N</i> steps CCW from ${n('Do', 'C')} = <i>N</i>♭.</div>
         </div>
       `
     },
     {
-      title: 'Bass Progressions',
+      title: 'Walking & Voice-Leading',
       html: `
         <div class="g-card g-compact-list">
-          <h3 class="g-heading">Essential Bass Walks on the Wheel</h3>
-          <div><b>ii → V → I</b> — Walk <b>counter-clockwise</b> one notch at a time (+2 → +1 → 0).<br/><span class="g-muted-line">In ${n('Si♭', 'B♭')}: <b>${n('Do m7 → Fa7 → Si♭Maj7', 'Cm7 → F7 → B♭Maj7')}</b></span></div>
-          <div><b>vi → ii → V → I</b> — Walk <b>3 notches CCW</b> straight home (+3 → +2 → +1 → 0).<br/><span class="g-muted-line">In ${n('Do', 'C')}: <b>${n('La m7 → Ré m7 → Sol7 → DoMaj7', 'Am7 → Dm7 → G7 → CMaj7')}</b></span></div>
-          <div><b>I – IV – V Groove Box</b> — Root flanked by its two immediate neighbors (−1, 0, +1).<br/><span class="g-muted-line">In ${n('Sol', 'G')}: <b>${n('Do (IV) · Sol (I) · Ré (V)', 'C (IV) · G (I) · D (V)')}</b></span></div>
+          <h3 class="g-heading">7 → 3 Walking Bass Resolution</h3>
+          <div>When chords move <b>CCW in 4ths</b> (${n('Ré m7 → Sol 7 → Do Maj7', 'Dm7 → G7 → CMaj7')}), the <b>♭7</b> of chord A drops <b>1 fret (+5 CW)</b> into the <b>3</b> of chord B!</div>
+          <div>• <b>♭7</b> of <b>ii7</b> (= <b>1</b>) → <b>3</b> of <b>V7</b> (= <b>7</b>)</div>
+          <div>• <b>♭7</b> of <b>V7</b> (= <b>4</b>) → <b>3</b> of <b>IMaj7</b> (= <b>3</b>)</div>
         </div>
 
         <div class="g-card g-compact-list">
-          <h3 class="g-heading">Tritone Sub &amp; Guide Tones</h3>
-          <div><b>Guide Tones of V7</b> — Its <b>3</b> and <b>♭7</b> sit <b>diametrically opposite</b> on the Circle (6 steps apart).</div>
-          <div><b>Tritone Sub (♭II7 → I)</b> — Jump straight across the Circle from <b>V7</b> to <b>♭II7</b>: both chords share the <i>exact same</i> 3 &amp; ♭7 guide tones, giving you a butter-smooth chromatic bass slide down 1 fret into <b>I</b>!<br/><span class="g-muted-line">${n('Ré m7 → Ré♭7 → DoMaj7', 'Dm7 → D♭7 → CMaj7')}</span></div>
+          <h3 class="g-heading">Chromatic Approaches &amp; Tritone Sub</h3>
+          <div><b>1 fret below → target</b> — Always <b>+5 steps CW</b> (${n('Si → Do, Ré → Mi♭', 'B → C, D → E♭')}).</div>
+          <div><b>1 fret above → target</b> — Always <b>−5 steps CCW</b> (${n('Ré♭ → Do, Si♭ → La', 'D♭ → C, B♭ → A')}).</div>
+          <div><b>Tritone Sub (♭II7 → I)</b> — Opposite <b>V7</b> on the Circle; shares the exact same <b>3 ↔ ♭7</b> guide tones!</div>
         </div>
       `
     },
     {
-      title: 'Bass Neck ↔ Circle',
+      title: 'Bass Neck ↔ Stage',
       html: `
         <div class="g-card g-compact-list">
           <h3 class="g-heading">4-String Tuning IS the Circle</h3>
-          <div>Open strings <b>${n('Mi → La → Ré → Sol', 'E → A → D → G')}</b> sit at <b>4h → 3h → 2h → 1h</b> on the Circle!</div>
-          <div>• <b>1 string higher (same fret)</b> = +4th = <b>1 step CCW</b> on Circle.</div>
-          <div>• <b>1 string lower (same fret)</b> = +5th (down 4th) = <b>1 step CW</b>.</div>
-          <div>• <b>Power 5th (+1 string, +2 frets)</b> = <b>+1 step CW</b>.</div>
-          <div>• <b>Major 3rd (+1 string, −1 fret)</b> = <b>+4 steps CW</b>.</div>
-          <div>• <b>Minor 3rd (+1 string, −2 frets)</b> = <b>−3 steps CCW</b>.</div>
-          <div>• <b>Minor 7th (+2 strings, same fret)</b> = <b>−2 steps CCW</b>.</div>
+          <div>Open strings <b>${n('Mi → La → Ré → Sol', 'E → A → D → G')}</b> sit at <b>4h → 3h → 2h → 1h</b>!</div>
+          <div>• <b>1 string higher, same fret</b> = +4th = <b>−1 step CCW</b>.</div>
+          <div>• <b>1 string lower, same fret</b> = +5th = <b>+1 step CW</b>.</div>
+          <div>• <b>Same note on next higher string</b> = <b>−5 frets</b> (except open/12th).</div>
         </div>
 
         <div class="g-card">
-          <h3 class="g-heading">Solfège ↔ Anglo Notation</h3>
+          <h3 class="g-heading">Solfège ↔ Real-Book Notation</h3>
           <table class="g-table">
             <thead>
               <tr><th>Do</th><th>Ré</th><th>Mi</th><th>Fa</th><th>Sol</th><th>La</th><th>Si</th></tr>

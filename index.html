@@ -24,6 +24,15 @@
           <span class="brand-title">BassCircle</span>
           <div class="header-pills">
             <button
+              id="btn-menu-blind"
+              class="pill-btn"
+              type="button"
+              aria-label="Cycle Circle label visibility: Auto, Blind, or Labels"
+              title="Wheel visibility: Auto (FSRS hides labels once familiar), Blind, or Labels"
+            >
+              Auto
+            </button>
+            <button
               id="btn-menu-notation"
               class="pill-btn"
               type="button"
@@ -55,7 +64,7 @@
         <div class="progress-card">
           <div class="progress-header">
             <span class="progress-label">Circle Mastery</span>
-            <span id="deck-count" class="deck-count">0 / 348</span>
+            <span id="deck-count" class="deck-count">0 / 449</span>
           </div>
           <div class="progress-visuals">
             <div class="mini-wheel-wrap" title="Mastery around the 12 Circle keys">
@@ -93,7 +102,7 @@
         </div>
 
         <nav class="menu-actions" aria-label="Quiz modes and tools">
-          <!-- Hero Primary Action: Stratified Random Mix across all Circle quizzes -->
+          <!-- Hero Primary Action: Stratified Random Mix across all 8 Circle modes -->
           <button
             id="btn-go-mixed"
             class="btn btn-primary btn-hero"
@@ -112,20 +121,20 @@
             <span class="hero-label">Random Quiz</span>
           </button>
 
-          <!-- 6 Focused Quiz Modes -->
+          <!-- 8 Focused Quiz Modes (4 x 2 Grid) -->
           <div class="mode-grid">
-            <button class="btn btn-mode" data-mode="notes" type="button">
+            <button class="btn btn-mode" data-mode="notes" type="button" title="Blank Circle Notes & Bilingual Reflex">
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="8" stroke-dasharray="2.5 3.2" />
                 <circle cx="12" cy="4" r="2" fill="currentColor" stroke="none" />
-                <path d="M9 14.5V9.2l6-1.2v5.3" />
-                <circle cx="7.8" cy="14.8" r="1.5" />
-                <circle cx="13.8" cy="13.6" r="1.5" />
+                <path d="M9.5 14.8V9.4l5.2-1.1v5.1" />
+                <circle cx="8.3" cy="15" r="1.4" />
+                <circle cx="13.5" cy="13.7" r="1.4" />
               </svg>
               <span class="mode-name">Notes</span>
             </button>
 
-            <button class="btn btn-mode" data-mode="degrees" type="button">
+            <button class="btn btn-mode" data-mode="degrees" type="button" title="Blank Circle Numeric Degrees">
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="8.2" stroke-dasharray="2.5 3.2" />
                 <path d="M10.8 9.5l1.5-1v7M10.5 15.5h3.6" />
@@ -133,31 +142,49 @@
               <span class="mode-name">Degrees</span>
             </button>
 
-            <button class="btn btn-mode" data-mode="intervals" type="button">
+            <button class="btn btn-mode" data-mode="clef" type="button" title="Clé de Fa (Bass Clef) Sight-Reading">
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="7" cy="16.5" r="2.3" />
-                <circle cx="17.5" cy="7.5" r="2.3" />
+                <circle cx="8.2" cy="10" r="1.8" fill="currentColor" stroke="none" />
+                <path d="M6.8 10c0-3.5 3.2-5 6-4.2 3.2.9 3.8 5.2 1.2 8.8-1.6 2.2-4.2 3.6-6.8 4.4" />
+                <circle cx="17.8" cy="8.2" r="1.15" fill="currentColor" stroke="none" />
+                <circle cx="17.8" cy="12.2" r="1.15" fill="currentColor" stroke="none" />
+              </svg>
+              <span class="mode-name">Clé de Fa</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="ear" type="button" title="Ear to Circle Training">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6.5 10.5a5.5 5.5 0 1 1 9.8 3.4c-1.1 1.4-1.8 2.4-2.1 3.7a2.4 2.4 0 0 1-4.6-.5" />
+                <path d="M9.8 10.8a2.2 2.2 0 1 1 3.7 1.6c-.6.6-1 1.2-1 2" />
+              </svg>
+              <span class="mode-name">Ear</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="intervals" type="button" title="Intervals, Chromatic Math & Degree Harmony">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="7" cy="16.5" r="2.2" />
+                <circle cx="17.5" cy="7.5" r="2.2" />
                 <path d="M8.8 14.6C10.5 10.5 12.8 8.8 15.2 8" />
               </svg>
               <span class="mode-name">Intervals</span>
             </button>
 
-            <button class="btn btn-mode" data-mode="relatives" type="button">
-              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="9.5" cy="12" r="5.5" />
-                <circle cx="14.5" cy="12" r="5.5" />
-              </svg>
-              <span class="mode-name">Relatives</span>
-            </button>
-
-            <button class="btn btn-mode" data-mode="bass" type="button">
+            <button class="btn btn-mode" data-mode="chords" type="button" title="Constellations, Slash Chords & Relatives">
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
                 <polygon points="12,4 19,9.5 16,18.5 6.5,15.5" />
+              </svg>
+              <span class="mode-name">Chords</span>
+            </button>
+
+            <button class="btn btn-mode" data-mode="bass" type="button" title="Voice-Leading, Turnarounds & Stage Bridge">
+              <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 15.5c2.2-4.5 4.5-4.5 6.8 0s4.5 4.5 6.8 0L20 11" />
+                <polyline points="16.5,10.5 20,10.5 20,14" />
               </svg>
               <span class="mode-name">Grooves</span>
             </button>
 
-            <button class="btn btn-mode" data-mode="fretboard" type="button">
+            <button class="btn btn-mode" data-mode="fretboard" type="button" title="Bidirectional 4-String Bass Neck & Circle">
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="3.5" y="6" width="17" height="12" rx="2" />
                 <path d="M9 6v12M15 6v12M3.5 10h17M3.5 14h17" />
@@ -186,7 +213,7 @@
               id="btn-go-theory"
               class="btn btn-tile"
               type="button"
-              aria-label="Circle of Fifths and Bass Theory Cheat Sheet"
+              aria-label="Circle of Fifths, Clé de Fa and Bass Cheat Sheet"
             >
               <svg class="icon-sm" viewBox="0 0 24 24" aria-hidden="true">
                 <path
@@ -256,7 +283,7 @@
         </footer>
       </section>
 
-      <!-- QUIZ SESSION VIEW (ALL ANSWERS ON THE CIRCLE OF FIFTHS) -->
+      <!-- QUIZ SESSION VIEW -->
       <section id="view-quiz" class="view" aria-label="Circle quiz session">
         <header class="top-bar">
           <button
@@ -271,6 +298,15 @@
           </button>
 
           <div class="header-pills">
+            <button
+              id="btn-quiz-blind"
+              class="pill-btn"
+              type="button"
+              aria-label="Cycle Blind Wheel mode"
+              title="Wheel visibility: Auto, Blind, or Labels"
+            >
+              Auto
+            </button>
             <button
               id="btn-quiz-notation"
               class="pill-btn"
@@ -296,7 +332,7 @@
             </button>
           </div>
 
-          <span id="quiz-counter" class="revise-counter">1 / 18</span>
+          <span id="quiz-counter" class="revise-counter">1 / 16</span>
         </header>
 
         <div class="quiz-prompt-card">
@@ -305,7 +341,7 @@
             <div id="quiz-steps-row" class="quiz-steps-row"></div>
           </div>
           <p id="quiz-prompt" class="quiz-prompt"></p>
-          <div id="quiz-fretboard-wrap" class="quiz-fretboard-wrap is-gone"></div>
+          <div id="quiz-media-wrap" class="quiz-media-wrap is-gone"></div>
         </div>
 
         <div class="quiz-circle-stage">
@@ -319,7 +355,7 @@
               id="btn-reveal"
               class="pill-btn pill-subtle"
               type="button"
-              aria-label="Reveal answer on the Circle"
+              aria-label="Reveal answer"
             >
               Show
             </button>
@@ -344,7 +380,7 @@
       <!-- SESSION COMPLETE SUMMARY -->
       <section id="view-complete" class="view" aria-label="Session summary">
         <div class="complete-wrap">
-          <p id="complete-title" class="complete-title">18 drills</p>
+          <p id="complete-title" class="complete-title">16 drills</p>
 
           <div class="summary-grid">
             <div class="summary-item" aria-label="First-tap clean">
@@ -447,7 +483,7 @@
         </div>
       </section>
 
-      <!-- 5-PAGE CIRCLE & BASS THEORY CHEAT SHEET -->
+      <!-- 6-PAGE CIRCLE, CLÉ DE FA & BASS THEORY CHEAT SHEET -->
       <section id="view-theory" class="view" aria-label="Theory cheat sheet">
         <header class="top-bar">
           <button
@@ -460,8 +496,8 @@
               <path d="M15 6l-6 6 6 6" />
             </svg>
           </button>
-          <span id="theory-page-title" class="grammar-page-title">Circle Geometry</span>
-          <span id="theory-counter" class="revise-counter">1 / 5</span>
+          <span id="theory-page-title" class="grammar-page-title">Clé de Fa (𝄢) Guide</span>
+          <span id="theory-counter" class="revise-counter">1 / 6</span>
         </header>
 
         <div id="theory-track" class="grammar-track"></div>

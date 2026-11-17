@@ -521,33 +521,39 @@ export class CircleView {
 
 /**
  * Renders a crisp 4-string Bass Fretboard SVG (`Mi – La – Ré – Sol` / `E – A – D – G`, frets 0..12).
- * - In Quiz mode: highlights a single target `{ stringIndex, fret }` dot.
- * - In Explorer mode: highlights all frets matching `activeDegreesByPc` (`Map<pc, { label, isRoot, isChordTone }>`),
- *   and calls `onTapFret({ stringIndex, fret, midi, pos })` when tapped!
+ * Supports 3 modes:
+ * 1. `singleDot`: `{ stringIndex, fret, revealedLabel? }` (Forward Neck -> Circle quiz)
+ * 2. `interactiveQuiz`: `{ foundFrets, wrongCell }` (Reverse Circle -> All 4 Strings quiz)
+ * 3. `activeMap`: `Map<pc, { text, role }>` (Interactive Explorer)
  */
 export function renderBassFretboard(
   container,
   {
     notation = 'solfege',
-    singleDot = null, // { stringIndex, fret }
-    activeMap = null, // Map<pc, { text, role: 'root' | 'chord' | 'scale' }>
+    singleDot = null,
+    interactiveQuiz = null,
+    activeMap = null,
     onTapFret = null
   } = {}
 ) {
   container.textContent = '';
 
+  const isTall = Boolean(interactiveQuiz);
   const width = 356;
-  const height = 100;
-  const nutX = 44;
+  const height = isTall ? 120 : 100;
+  const nutX = 46;
   const endX = 348;
   const fretCount = 12;
-  const fretSpan = (endX - nutX) / fretCount; // ~25.33px per fret
-  const rowY = [78, 57, 36, 15]; // index 0 = E/Mi (bottom), 3 = G/Sol (top)
+  const fretSpan = (endX - nutX) / fretCount;
+  const rowY = isTall ? [94, 69, 44, 19] : [78, 57, 36, 15]; // 0 = E/Mi (bottom), 3 = G/Sol (top)
+  const boardTop = isTall ? 9 : 8;
+  const boardBottom = isTall ? 104 : 85;
+  const fretNumY = isTall ? 115 : 95;
 
   const svg = svgEl('svg', {
     viewBox: `0 0 ${width} ${height}`,
     class: 'fretboard-svg',
-    role: 'img',
+    role: 'group',
     'aria-label': '4-string bass fretboard'
   });
 
@@ -555,32 +561,33 @@ export function renderBassFretboard(
   svg.appendChild(
     svgEl('rect', {
       x: nutX,
-      y: 8,
+      y: boardTop,
       width: endX - nutX,
-      height: 77,
+      height: boardBottom - boardTop,
       rx: 6,
       class: 'fb-board'
     })
   );
 
   // Classic inlay dots at frets 3, 5, 7, 9 and double dot at 12
+  const midBoardY = (rowY[1] + rowY[2]) * 0.5;
   for (const f of [3, 5, 7, 9]) {
     const cx = nutX + (f - 0.5) * fretSpan;
     svg.appendChild(
       svgEl('circle', {
         cx: cx.toFixed(1),
-        cy: '46.5',
+        cy: midBoardY.toFixed(1),
         r: '3.1',
         class: 'fb-inlay'
       })
     );
   }
   const f12x = nutX + 11.5 * fretSpan;
-  for (const cy of [29, 64]) {
+  for (const cy of [(rowY[2] + rowY[3]) * 0.5, (rowY[0] + rowY[1]) * 0.5]) {
     svg.appendChild(
       svgEl('circle', {
         cx: f12x.toFixed(1),
-        cy: String(cy),
+        cy: cy.toFixed(1),
         r: '2.9',
         class: 'fb-inlay'
       })
@@ -593,9 +600,9 @@ export function renderBassFretboard(
     svg.appendChild(
       svgEl('line', {
         x1: x.toFixed(1),
-        y1: '8',
+        y1: String(boardTop),
         x2: x.toFixed(1),
-        y2: '85',
+        y2: String(boardBottom),
         class: 'fb-fret'
       })
     );
@@ -603,15 +610,15 @@ export function renderBassFretboard(
   svg.appendChild(
     svgEl('line', {
       x1: String(nutX),
-      y1: '7.5',
+      y1: String(boardTop - 0.5),
       x2: String(nutX),
-      y2: '85.5',
+      y2: String(boardBottom + 0.5),
       class: 'fb-nut'
     })
   );
 
-  // Fret number markers along bottom (3, 5, 7, 9, 12 + singleDot fret if different)
-  const numberedFrets = new Set([3, 5, 7, 9, 12]);
+  // Fret number markers along bottom
+  const numberedFrets = new Set(isTall ? [1, 3, 5, 7, 9, 12] : [3, 5, 7, 9, 12]);
   if (singleDot && singleDot.fret > 0) numberedFrets.add(singleDot.fret);
   for (const f of numberedFrets) {
     const x = nutX + (f - 0.5) * fretSpan;
@@ -620,7 +627,7 @@ export function renderBassFretboard(
       Object.assign(
         svgEl('text', {
           x: x.toFixed(1),
-          y: '95',
+          y: String(fretNumY),
           class: isTargetFret ? 'fb-fret-num is-target' : 'fb-fret-num',
           'text-anchor': 'middle'
         }),
@@ -635,7 +642,7 @@ export function renderBassFretboard(
     const label = notation === 'letter' ? str.letter : str.solfege;
 
     const lblEl = svgEl('text', {
-      x: '16',
+      x: isTall ? '14' : '16',
       y: String(y),
       class: 'fb-str-label',
       'text-anchor': 'middle',
@@ -643,6 +650,18 @@ export function renderBassFretboard(
     });
     lblEl.textContent = label;
     svg.appendChild(lblEl);
+
+    if (isTall) {
+      // Subtle open-string ring at fret 0 so user sees open strings are tappable!
+      svg.appendChild(
+        svgEl('circle', {
+          cx: String(nutX - 12),
+          cy: String(y),
+          r: '5.5',
+          class: 'fb-open-slot'
+        })
+      );
+    }
 
     svg.appendChild(
       svgEl('line', {
@@ -656,12 +675,12 @@ export function renderBassFretboard(
     );
   }
 
-  // Render Single Quiz Dot
+  // Mode 1: Single Quiz Dot (Neck -> Circle)
   if (singleDot) {
     const y = rowY[singleDot.stringIndex];
     const x =
       singleDot.fret === 0
-        ? nutX - 10
+        ? nutX - 11
         : nutX + (singleDot.fret - 0.5) * fretSpan;
 
     svg.appendChild(
@@ -676,8 +695,8 @@ export function renderBassFretboard(
       svgEl('circle', {
         cx: x.toFixed(1),
         cy: String(y),
-        r: '7.4',
-        class: 'fb-dot-quiz'
+        r: '7.6',
+        class: singleDot.revealedLabel ? 'fb-dot-found' : 'fb-dot-quiz'
       })
     );
     const qMark = svgEl('text', {
@@ -687,11 +706,94 @@ export function renderBassFretboard(
       'text-anchor': 'middle',
       'dominant-baseline': 'central'
     });
-    qMark.textContent = '?';
+    qMark.textContent = singleDot.revealedLabel || '?';
     svg.appendChild(qMark);
   }
 
-  // Render Interactive Explorer Dots across frets 0..12
+  // Mode 2: Interactive Reverse Quiz (Circle -> Tap all 4 Bass Strings!)
+  if (interactiveQuiz && onTapFret) {
+    const foundByKey = new Map(
+      (interactiveQuiz.foundFrets || []).map((it) => [`${it.stringIndex}:${it.fret}`, it])
+    );
+    const wrong = interactiveQuiz.wrongCell;
+
+    for (const str of BASS_STRINGS) {
+      const y = rowY[str.index];
+      for (let f = 0; f <= fretCount; f++) {
+        const midi = str.openMidi + f;
+        const pc = mod(midi, 12);
+        const cx = f === 0 ? nutX - 12 : nutX + (f - 0.5) * fretSpan;
+        const hitX = f === 0 ? 2 : nutX + (f - 1) * fretSpan;
+        const hitW = f === 0 ? nutX - 3 : fretSpan;
+        const key = `${str.index}:${f}`;
+        const found = foundByKey.get(key);
+        const isWrong = wrong && wrong.stringIndex === str.index && wrong.fret === f;
+
+        if (found) {
+          svg.appendChild(
+            svgEl('circle', {
+              cx: cx.toFixed(1),
+              cy: String(y),
+              r: '8.4',
+              class: 'fb-dot-found'
+            })
+          );
+          const t = svgEl('text', {
+            x: cx.toFixed(1),
+            y: String(y),
+            class: 'fb-dot-text',
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central'
+          });
+          t.textContent = found.label;
+          svg.appendChild(t);
+        } else if (isWrong) {
+          svg.appendChild(
+            svgEl('circle', {
+              cx: cx.toFixed(1),
+              cy: String(y),
+              r: '8.4',
+              class: 'fb-dot-wrong'
+            })
+          );
+          const t = svgEl('text', {
+            x: cx.toFixed(1),
+            y: String(y),
+            class: 'fb-dot-wrong-text',
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central'
+          });
+          t.textContent = wrong.label || '×';
+          svg.appendChild(t);
+        }
+
+        // Generous rectangular touch cell covering the string & fret
+        const hitRect = svgEl('rect', {
+          x: hitX.toFixed(1),
+          y: (y - 12.5).toFixed(1),
+          width: hitW.toFixed(1),
+          height: '25',
+          fill: 'transparent',
+          class: 'fb-hit-cell',
+          role: 'button',
+          'aria-label': `${str.solfege} string fret ${f}`
+        });
+        hitRect.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onTapFret({
+            stringIndex: str.index,
+            fret: f,
+            midi,
+            pc,
+            pos: pitchClassToPos(pc)
+          });
+        });
+        svg.appendChild(hitRect);
+      }
+    }
+  }
+
+  // Mode 3: Interactive Explorer Dots across frets 0..12
   if (activeMap) {
     for (const str of BASS_STRINGS) {
       const y = rowY[str.index];
@@ -730,13 +832,13 @@ export function renderBassFretboard(
                 stringIndex: str.index,
                 fret: f,
                 midi,
+                pc,
                 pos: pitchClassToPos(pc)
               })
             );
           }
           svg.appendChild(g);
         } else if (onTapFret && f > 0) {
-          // Subtle invisible tap zone on non-scale frets so user can still pluck any chromatic fret!
           const hit = svgEl('circle', {
             cx: x.toFixed(1),
             cy: String(y),
@@ -749,6 +851,7 @@ export function renderBassFretboard(
               stringIndex: str.index,
               fret: f,
               midi,
+              pc,
               pos: pitchClassToPos(pc)
             })
           );

@@ -1,10 +1,11 @@
-const CACHE_NAME = 'basscircle-pwa-v1';
+const CACHE_NAME = 'basscircle-pwa-v2';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './theory.js',
+  './staff.js',
   './quizzes.js',
   './circle.js',
   './fsrs.js',

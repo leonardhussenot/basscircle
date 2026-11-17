@@ -154,6 +154,12 @@ button {
   transform: scale(0.95);
 }
 
+.pill-btn.is-active-blind {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
+}
+
 .pill-subtle {
   color: var(--muted);
   box-shadow: none;
@@ -339,23 +345,24 @@ button {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .btn-mode {
-  min-height: 64px;
-  padding: 10px 6px;
-  border-radius: 16px;
+  min-height: 62px;
+  padding: 9px 4px;
+  border-radius: 15px;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .mode-name {
-  font-size: 12px;
-  font-weight: 560;
-  letter-spacing: -0.01em;
+  font-size: 11.2px;
+  font-weight: 570;
+  letter-spacing: -0.015em;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .menu-consult-grid {
@@ -563,8 +570,89 @@ button {
   color: var(--muted);
 }
 
-.quiz-fretboard-wrap {
+.quiz-media-wrap {
   margin-top: 4px;
+}
+
+/* CLÉ DE FA (BASS CLEF) ENGRAVED STAFF SVG */
+.staff-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.st-paper {
+  fill: #F6F2E8;
+  stroke: #E2DACB;
+  stroke-width: 1;
+}
+
+.st-line {
+  stroke: #AEA698;
+  stroke-width: 1.15;
+}
+
+.st-line-fa {
+  stroke: #9A7B4F;
+  stroke-width: 1.75;
+}
+
+.st-barline {
+  stroke: #8E8679;
+  stroke-width: 1.4;
+}
+
+.st-ledger {
+  stroke: #6F695E;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.st-clef-fill {
+  fill: var(--ink);
+}
+
+.st-clef-stroke {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.75;
+  stroke-linecap: round;
+}
+
+.st-acc line,
+.st-acc path {
+  stroke: var(--ink);
+}
+
+.st-acc-done line,
+.st-acc-done path {
+  stroke: var(--sage);
+}
+
+.st-note .st-head {
+  fill: var(--ink);
+}
+
+.st-note .st-stem {
+  stroke: var(--ink);
+  stroke-width: 1.65;
+  stroke-linecap: round;
+}
+
+.st-note.is-default {
+  opacity: 0.42;
+}
+
+.st-note.is-active {
+  opacity: 1;
+}
+
+.st-note.is-done .st-head {
+  fill: var(--sage);
+}
+
+.st-note.is-done .st-stem {
+  stroke: var(--sage);
 }
 
 .quiz-circle-stage {
@@ -931,10 +1019,39 @@ button {
   fill: var(--ink);
 }
 
+.fb-dot-found {
+  fill: var(--sage);
+}
+
+.fb-dot-wrong {
+  fill: var(--danger-soft);
+  stroke: var(--danger);
+  stroke-width: 1.5;
+}
+
+.fb-dot-wrong-text {
+  font-size: 8.2px;
+  font-weight: 700;
+  fill: var(--danger);
+  pointer-events: none;
+}
+
+.fb-open-slot {
+  fill: #F6F2E8;
+  stroke: #CEC5B4;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+
+.fb-hit-cell {
+  cursor: pointer;
+}
+
 .fb-dot-text {
-  font-size: 9.5px;
+  font-size: 8.6px;
   font-weight: 700;
   fill: var(--surface);
+  pointer-events: none;
 }
 
 .fb-note {
