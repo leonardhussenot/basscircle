@@ -14,6 +14,7 @@ import {
   toPracticalEnharmonic,
   getStandardNodeLabel,
   getCanonicalNoteName,
+  getSharpEnharmonicName,
   chooseBestRootSpelling,
   spellInterval,
   getBassFretInfo,
@@ -98,6 +99,8 @@ export function buildCanonicalDeckDefinitions() {
     { id: 'skill_note_sweep_flats', category: 'notes', kind: 'note_sweep', params: { mode: 'flats' } },
     { id: 'skill_note_walk_from_any', category: 'notes', kind: 'note_walk_random', params: {} },
     { id: 'skill_note_sweep_all12', category: 'notes', kind: 'note_sweep', params: { mode: 'all12' } },
+    { id: 'skill_note_enharmonic_sharps', category: 'notes', kind: 'note_enharmonic_twin', params: {} },
+    { id: 'skill_note_sharp_overlap_walk', category: 'notes', kind: 'note_sharp_overlap_walk', params: {} },
 
     // =======================================================================
     // 2. DEGREES (Blank Circle Numeric Degrees around Random `1` — 12 Skills)
@@ -132,6 +135,7 @@ export function buildCanonicalDeckDefinitions() {
     { id: 'skill_deg_math_3rds', category: 'intervals', kind: 'interval_of_degree_numeric', params: { group: '3rds' } },
     { id: 'skill_deg_math_7ths_5ths', category: 'intervals', kind: 'interval_of_degree_numeric', params: { group: '7ths_5ths' } },
     { id: 'skill_deg_math_inkey', category: 'intervals', kind: 'interval_of_degree_inkey', params: {} },
+    { id: 'skill_iv_sharp_3rds_7ths', category: 'intervals', kind: 'iv_sharp_enharmonic_context', params: {} },
 
     // =======================================================================
     // 4. CLÉ DE FA (𝄢 Bass Clef Sight-Reading — 10 Procedural Skills)
@@ -206,6 +210,7 @@ export function buildCanonicalDeckDefinitions() {
     { id: 'skill_dg_read_iv_upper', category: 'highstrings', kind: 'neck_to_interval', params: { strings: [2, 3], symbols: ['3', '♭3', '♭7', '5'], lockedStrings: [0, 1] } },
     { id: 'skill_dg_coldcall_g_only', category: 'highstrings', kind: 'circle_to_strings', params: { activeStrings: [3], harmonic: false } },
     { id: 'skill_dg_coldcall_d_only', category: 'highstrings', kind: 'circle_to_strings', params: { activeStrings: [2], harmonic: false } },
+    { id: 'skill_dg_enharmonic_coldcall', category: 'highstrings', kind: 'dg_enharmonic_coldcall', params: {} },
     { id: 'skill_dg_play_both_dg', category: 'highstrings', kind: 'circle_to_strings', params: { activeStrings: [2, 3], harmonic: false } },
     { id: 'skill_dg_harmonic_on_dg', category: 'highstrings', kind: 'circle_to_strings', params: { activeStrings: [2, 3], harmonic: true } },
     { id: 'skill_dg_harmonic_on_g_only', category: 'highstrings', kind: 'circle_to_strings', params: { activeStrings: [3], harmonic: true } },
@@ -515,6 +520,104 @@ export function instantiateQuiz(
       doneCenterPrimary: `${seq.length} / ${seq.length}`,
       doneCenterSub: 'Circle mapped',
       explanation: `${getCanonicalNoteName(0, notation)} is fixed at 12h · right = sharps (+5ths CW), left = flats (+4ths CCW).`
+    };
+  }
+
+  if (kind === 'note_enharmonic_twin') {
+    // Specifically drills C♯/Do♯ (7h), G♯/Sol♯ (8h), D♯/Ré♯ (9h), A♯/La♯ (10h), G♭/Sol♭ (6h) on a blank Circle!
+    const targetPos = pickFrom([6, 7, 8, 9, 10], rand, avoidSet);
+    const cross = rand() < 0.35;
+    const promptNot = cross ? oppositeNotation(notation) : notation;
+
+    const promptNote =
+      targetPos === 6
+        ? getCanonicalNoteName(6, promptNot, true) // Sol♭ / G♭
+        : getSharpEnharmonicName(targetPos, promptNot); // Do♯, Sol♯, Ré♯, La♯
+    const localTwinSharp =
+      targetPos === 6
+        ? getCanonicalNoteName(6, notation, true)
+        : getSharpEnharmonicName(targetPos, notation);
+    const localTwinFlat = getCanonicalNoteName(targetPos, notation, false);
+    const nodes = makeBlankNoteNodes(notation);
+
+    // Natural parent of the sharp (e.g. La at 3h for La♯ at 10h) sits at -7 CW (+5 CCW)!
+    const natPos = mod(targetPos - 7, 12);
+    const natName = getCanonicalNoteName(natPos, notation);
+
+    return {
+      id: card.id,
+      category,
+      primaryRootPos: targetPos,
+      answerSurface: 'circle',
+      eyebrow: 'ENHARMONIC TWIN · BLANK CIRCLE',
+      promptHtml: cross
+        ? `Chart says <b>${promptNote}</b> · place on Circle`
+        : `Place <b>${promptNote}</b> on the Circle`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos,
+          centerLabel: promptNote,
+          centerSub: 'Tap clock hour',
+          stepChipLabel: promptNote,
+          revealedPrimary: localTwinSharp,
+          revealedSecondary: localTwinFlat,
+          revealedSub: `${targetPos}h`,
+          midiToPlay: bassMidiForPos(targetPos, 36)
+        }
+      ],
+      revealExtraNodes:
+        targetPos >= 7
+          ? [{ pos: 6, mode: 'source', primary: getCanonicalNoteName(6, notation), subBadge: '6h' }]
+          : [],
+      geometry: { type: 'arc', fromPos: 6, toPos: targetPos },
+      doneCenterPrimary: `${localTwinSharp}=${localTwinFlat}`,
+      doneCenterSub: `${targetPos} o’clock`,
+      explanation:
+        targetPos === 6
+          ? `6 o’clock is both ${localTwinFlat} and ${localTwinSharp}.`
+          : `Walk CW in 5ths past 6h (${getCanonicalNoteName(6, notation)}): ${targetPos}h is ${localTwinSharp} (= ${localTwinFlat}, −5h CCW from ${natName}).`
+    };
+  }
+
+  if (kind === 'note_sharp_overlap_walk') {
+    // Walk clockwise in 5ths from Si (5h) -> Fa♯ (6h) -> Do♯ (7h) -> Sol♯ (8h) -> Ré♯ (9h) -> La♯ (10h)!
+    const seq = [5, 6, 7, 8, 9, 10];
+    const nodes = makeBlankNoteNodes(notation);
+    const startName = getCanonicalNoteName(5, notation);
+
+    const steps = seq.map((p, idx) => {
+      const sharpNm = getSharpEnharmonicName(p, notation);
+      const flatNm = p >= 7 ? getCanonicalNoteName(p, notation) : '';
+      return {
+        targetPos: p,
+        centerLabel: sharpNm,
+        centerSub: `${p}h · ${idx + 1}/6`,
+        stepChipLabel: sharpNm,
+        revealedPrimary: sharpNm,
+        revealedSecondary: flatNm,
+        revealedSub: `${p}h`,
+        midiToPlay: bassMidiForPos(p, 35)
+      };
+    });
+
+    return {
+      id: card.id,
+      category,
+      primaryRootPos: 10,
+      answerSurface: 'circle',
+      eyebrow: 'SHARP OVERLAP · 5h → 10h WALK',
+      promptHtml: `Walk CW in <b>sharps</b> from <b>${startName}</b> to <b>${getSharpEnharmonicName(10, notation)}</b>`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps,
+      geometry: { type: 'walk', positions: seq },
+      doneCenterPrimary: `${getSharpEnharmonicName(10, notation)}=10h`,
+      doneCenterSub: 'Twins locked!',
+      explanation: `Continuing CW past 6h (${getCanonicalNoteName(6, notation)}) gives 7h=${getSharpEnharmonicName(7, notation)}, 8h=${getSharpEnharmonicName(8, notation)}, 9h=${getSharpEnharmonicName(9, notation)}, 10h=${getSharpEnharmonicName(10, notation)}!`
     };
   }
 
@@ -885,6 +988,70 @@ export function instantiateQuiz(
       doneCenterPrimary: targetName,
       doneCenterSub: `${roman} = ${chordRootName}`,
       explanation: `In ${keyName}, ${roman} is ${chordRootName}; its ${ivSym} is ${targetName}.`
+    };
+  }
+
+  if (kind === 'iv_sharp_enharmonic_context') {
+    // Musical contexts that naturally spell C♯/Do♯, G♯/Sol♯, D♯/Ré♯, A♯/La♯ (3rd of A/E/B/F♯ & 7th of D/A/E/B)!
+    const cases = [
+      { rootPos: 3, sym: '3' }, // 3rd of La -> Do♯ (7h)
+      { rootPos: 4, sym: '3' }, // 3rd of Mi -> Sol♯ (8h)
+      { rootPos: 5, sym: '3' }, // 3rd of Si -> Ré♯ (9h)
+      { rootPos: 6, sym: '3' }, // 3rd of Fa♯ -> La♯ (10h!)
+      { rootPos: 2, sym: '7' }, // 7th of Ré -> Do♯ (7h)
+      { rootPos: 3, sym: '7' }, // 7th of La -> Sol♯ (8h)
+      { rootPos: 4, sym: '7' }, // 7th of Mi -> Ré♯ (9h)
+      { rootPos: 5, sym: '7' }  // 7th of Si -> La♯ (10h!)
+    ];
+    const filtered = cases.filter((c) => !avoidSet.has(c.rootPos));
+    const { rootPos, sym } = (filtered.length ? filtered : cases)[
+      Math.floor(rand() * (filtered.length || cases.length))
+    ];
+    const iv = INTERVALS[sym];
+    const rootSpelled = CIRCLE_POSITIONS[rootPos].major; // Fa♯ (not Sol♭) at pos 6!
+    const targetSpelled = spellInterval(rootSpelled, sym);
+    const rootName = formatSpelledNote(rootSpelled, notation);
+    const targetName = formatSpelledNote(targetSpelled, notation);
+    const flatTwin = getCanonicalNoteName(targetSpelled.pos, notation, false);
+    const targetPos = targetSpelled.pos;
+
+    const nodes = makeNoteWheelNodes(notation, {
+      isBlind,
+      highlightMap: isBlind
+        ? {}
+        : { [rootPos]: { mode: 'anchor', primary: rootName, secondary: '', subBadge: '1' } }
+    });
+
+    return {
+      id: card.id,
+      category,
+      primaryRootPos: rootPos,
+      answerSurface: 'circle',
+      eyebrow: 'SHARP ENHARMONIC IN CONTEXT',
+      promptHtml: `${iv.name} <span class="q-badge">${sym}</span> of <b>${rootName}</b>`,
+      staff: null,
+      fretboard: null,
+      nodes,
+      steps: [
+        {
+          targetPos,
+          centerLabel: sym,
+          centerSub: `of ${rootName}`,
+          stepChipLabel: targetName,
+          revealedPrimary: targetName,
+          revealedSecondary: flatTwin,
+          revealedSub: sym,
+          midiToPlay: bassMidiForPos(rootPos, 35) + iv.semitones
+        }
+      ],
+      revealExtraNodes: isBlind
+        ? [{ pos: rootPos, mode: 'anchor', primary: rootName, subBadge: '1' }]
+        : [],
+      rootMidiPreview: bassMidiForPos(rootPos, 35),
+      geometry: { type: 'arc', fromPos: rootPos, toPos: targetPos },
+      doneCenterPrimary: targetName,
+      doneCenterSub: `= ${flatTwin} (${targetPos}h)`,
+      explanation: `${iv.name} (${sym}) of ${rootName} (${rootPos}h) jumps ${formatCircleStepDelta(iv.circleOffset)} to ${targetPos}h = ${targetName} (same spot as ${flatTwin}!).`
     };
   }
 
@@ -2167,6 +2334,73 @@ export function instantiateQuiz(
       doneCenterPrimary: targetName,
       doneCenterSub: fretSummary,
       explanation: `${targetName} on ${strNames}: ${fretSummary}.`
+    };
+  }
+
+  if (kind === 'dg_enharmonic_coldcall') {
+    // Directly drills Do♯/C♯, Sol♯/G♯, Ré♯/D♯, La♯/A♯, Sol♭/G♭ onto Ré & Sol strings (zero B♭ intermediate step!)
+    const targetPos = pickFrom([6, 7, 8, 9, 10], rand, avoidSet);
+    const activeStrings = [2, 3];
+    const lockedStrings = [0, 1];
+    const sharpName =
+      targetPos === 6
+        ? getCanonicalNoteName(6, notation, true)
+        : getSharpEnharmonicName(targetPos, notation);
+    const flatTwin = getCanonicalNoteName(targetPos, notation, false);
+    const targetPc = posToPitchClass(targetPos);
+    const strNames = activeStrings
+      .map((idx) => (notation === 'letter' ? BASS_STRINGS[idx].letter : BASS_STRINGS[idx].solfege))
+      .join(' & ');
+
+    const highlightMap = {
+      [targetPos]: {
+        mode: 'anchor',
+        primary: sharpName,
+        secondary: isBlind ? '' : flatTwin,
+        subBadge: `${targetPos}h`,
+        showEvenWhenBlind: true
+      }
+    };
+    const nodes = makeNoteWheelNodes(notation, { isBlind, highlightMap });
+
+    const canonicalFrets = activeStrings.map((sIdx) => {
+      const str = BASS_STRINGS[sIdx];
+      const f = mod(targetPc - str.pc, 12);
+      const sLbl = notation === 'letter' ? str.letter : str.solfege;
+      return { stringIndex: sIdx, fret: f, strLabel: sLbl, midi: str.openMidi + f };
+    });
+    const fretSummary = canonicalFrets.map((x) => `${x.strLabel}:${x.fret}`).join(' · ');
+
+    return {
+      id: card.id,
+      category,
+      primaryRootPos: targetPos,
+      answerSurface: 'fretboard',
+      targetPos,
+      targetPc,
+      targetName: sharpName,
+      requiredStrings: activeStrings,
+      canonicalFrets,
+      eyebrow: `ENHARMONIC COLD-CALL · ${strNames.toUpperCase()}`,
+      promptHtml: `Tap <b>${sharpName}</b> directly on both <b>${strNames}</b> strings`,
+      staff: null,
+      fretboard: {
+        mode: 'all4',
+        lockedStrings
+      },
+      initialGeometry: { type: 'none' },
+      nodes,
+      steps: canonicalFrets.map((cf) => ({
+        targetPos,
+        stringIndex: cf.stringIndex,
+        stepChipLabel: cf.strLabel,
+        revealedPrimary: sharpName,
+        midiToPlay: cf.midi
+      })),
+      geometry: { type: 'arc', fromPos: 6, toPos: targetPos },
+      doneCenterPrimary: `${sharpName}=${flatTwin}`,
+      doneCenterSub: fretSummary,
+      explanation: `${sharpName} (= ${flatTwin} at ${targetPos}h) on ${strNames}: ${fretSummary}.`
     };
   }
 

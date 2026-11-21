@@ -167,6 +167,19 @@ export function getTheoryPages(notation = 'solfege') {
         </div>
 
         <div class="g-card g-compact-list">
+          <h3 class="g-heading">7h–10h Enharmonic Overlap <span class="g-sub">(Why A♯ = B♭ is instant!)</span></h3>
+          <div>Keep walking <b>clockwise in 5ths past 6h (${n('Fa♯', 'F♯')})</b> and the sharps land right on the flat hours:</div>
+          <div class="g-chips">
+            <span><b>6h</b> ${n('Fa♯ = Sol♭', 'F♯ = G♭')}</span>
+            <span><b>7h</b> ${n('Do♯ = Ré♭', 'C♯ = D♭')}</span>
+            <span><b>8h</b> ${n('Sol♯ = La♭', 'G♯ = A♭')}</span>
+            <span><b>9h</b> ${n('Ré♯ = Mi♭', 'D♯ = E♭')}</span>
+            <span><b>10h</b> ${n('La♯ = Si♭', 'A♯ = B♭')}</span>
+          </div>
+          <div class="g-muted-line">And from any natural note: <b>♯ (+1 fret)</b> is always <b>−5h CCW (+7h CW)</b> · <b>♭ (−1 fret)</b> is always <b>+5h CW (−7h CCW)</b>!</div>
+        </div>
+
+        <div class="g-card g-compact-list">
           <h3 class="g-heading">Order of Sharps &amp; Flats</h3>
           <div><b>Sharps (♯)</b> — Start at <b>${n('Fa', 'F')}</b> (11h) and read <b>clockwise</b>:</div>
           <div class="g-chips">

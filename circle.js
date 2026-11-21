@@ -1039,7 +1039,7 @@ export function buildExplorerModel(rootPos, lens, notation = 'solfege', neckLabe
     } else {
       const entry = CIRCLE_POSITIONS[pos];
       notePrimary = formatSpelledNote(entry.major, notation);
-      if (pos === 6 && entry.altMajor) {
+      if (pos >= 6 && pos <= 10 && entry.altMajor) {
         noteSecondary = formatSpelledNote(entry.altMajor, notation);
       }
     }

@@ -179,18 +179,28 @@ export const CIRCLE_POSITIONS = [
 
 /**
  * Standard label for each Circle position (used when showing the full Circle).
- * Position 6 shows Fa♯ / Sol♭ (or F♯ / G♭) stacked via primary + secondary.
+ * Positions 6..10 display both flat & sharp enharmonic twins stacked (e.g. Si♭ / La♯)
+ * so your eye locks both names onto the same clock hour simultaneously!
  */
 export function getStandardNodeLabel(pos, notation = 'solfege') {
   const entry = CIRCLE_POSITIONS[mod(pos, 12)];
   const primary = formatSpelledNote(entry.major, notation);
-  if (entry.pos === 6 && entry.altMajor) {
+  if (entry.pos >= 6 && entry.pos <= 10 && entry.altMajor) {
     return {
       primary,
       secondary: formatSpelledNote(entry.altMajor, notation)
     };
   }
   return { primary, secondary: '' };
+}
+
+export function getSharpEnharmonicName(pos, notation = 'solfege') {
+  const p = mod(pos, 12);
+  const entry = CIRCLE_POSITIONS[p];
+  if (p >= 7 && p <= 10 && entry.altMajor) {
+    return formatSpelledNote(entry.altMajor, notation);
+  }
+  return formatSpelledNote(entry.major, notation);
 }
 
 export function getCanonicalNoteName(pos, notation = 'solfege', preferFlatAt6 = false) {
