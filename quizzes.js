@@ -90,8 +90,8 @@ export function buildCanonicalDeckDefinitions() {
     // =======================================================================
     { id: 'skill_note_spot_sharp', category: 'notes', kind: 'note_spot_pool', params: { pool: [1, 2, 3, 4, 5, 6], cross: false } },
     { id: 'skill_note_spot_flat', category: 'notes', kind: 'note_spot_pool', params: { pool: [6, 7, 8, 9, 10, 11], preferFlat: true, cross: false } },
-    { id: 'skill_note_spot_any', category: 'notes', kind: 'note_spot_pool', params: { pool: NON_ZERO_11, cross: false } },
-    { id: 'skill_note_bilingual_nat', category: 'notes', kind: 'note_spot_pool', params: { pool: [1, 2, 3, 4, 5, 11], cross: true } },
+    { id: 'skill_note_spot_any', category: 'notes', kind: 'note_spot_pool', params: { pool: ALL_12, cross: false } },
+    { id: 'skill_note_bilingual_nat', category: 'notes', kind: 'note_spot_pool', params: { pool: [0, 1, 2, 3, 4, 5, 11], cross: true } },
     { id: 'skill_note_bilingual_acc', category: 'notes', kind: 'note_spot_pool', params: { pool: [6, 7, 8, 9, 10], preferFlat: true, cross: true } },
     { id: 'skill_note_quad_rotated', category: 'notes', kind: 'note_quad_random', params: {} },
     { id: 'skill_note_sweep_sharps', category: 'notes', kind: 'note_sweep', params: { mode: 'sharps' } },
@@ -230,16 +230,6 @@ function makeNoteWheelNodes(notation, { isBlind = false, highlightMap = {} } = {
     const hl = highlightMap[pos];
 
     if (isBlind) {
-      if (pos === 0) {
-        return {
-          pos,
-          mode: hl?.mode || 'anchor',
-          primary: hl?.primary !== undefined ? hl.primary : std.primary,
-          secondary: '',
-          subBadge: hl?.subBadge || '12h',
-          wrongFlashLabel: std.primary
-        };
-      }
       if (hl && hl.showEvenWhenBlind) {
         return {
           pos,
@@ -271,7 +261,7 @@ function makeNoteWheelNodes(notation, { isBlind = false, highlightMap = {} } = {
   });
 }
 
-function makeBlankNoteNodes(notation, visiblePositions = [0]) {
+function makeBlankNoteNodes(notation, visiblePositions = []) {
   const visSet = new Set(visiblePositions);
   return Array.from({ length: 12 }, (_, pos) => {
     const std = getStandardNodeLabel(pos, notation);
@@ -351,7 +341,7 @@ export function instantiateQuiz(
   const isBlind = shouldUseBlindWheel(card, blindMode, Boolean(params.forceBlind));
 
   // =========================================================================
-  // 1. NOTES
+  // 1. NOTES (C / Do is ALWAYS 12h — zero anchor needed on the blank wheel!)
   // =========================================================================
   if (kind === 'note_spot_pool') {
     const targetPos = pickFrom(params.pool, rand, avoidSet);
@@ -361,7 +351,7 @@ export function instantiateQuiz(
     const promptNote = getCanonicalNoteName(targetPos, promptNotation, preferFlat);
     const circleNote = getCanonicalNoteName(targetPos, notation, preferFlat);
     const doName = getCanonicalNoteName(0, notation);
-    const nodes = makeBlankNoteNodes(notation, [0]);
+    const nodes = makeBlankNoteNodes(notation);
     const stepDelta = formatCircleStepDelta(targetPos);
 
     return {
@@ -387,21 +377,27 @@ export function instantiateQuiz(
           midiToPlay: bassMidiForPos(targetPos, 36)
         }
       ],
+      revealExtraNodes:
+        targetPos !== 0
+          ? [{ pos: 0, mode: 'source', primary: doName, subBadge: '12h' }]
+          : [],
       geometry: { type: 'arc', fromPos: 0, toPos: targetPos },
       doneCenterPrimary: circleNote,
       doneCenterSub: cross ? `= ${promptNote}` : stepDelta,
-      explanation: cross
-        ? `${promptNote} = ${circleNote} (${stepDelta} from ${doName}).`
-        : `${circleNote} is ${stepDelta} from ${doName}.`
+      explanation:
+        targetPos === 0
+          ? `${circleNote} is always fixed at 12 o’clock.`
+          : cross
+          ? `${promptNote} = ${circleNote} (${stepDelta} from 12h ${doName}).`
+          : `${circleNote} lives at ${stepDelta} from 12h ${doName}.`
     };
   }
 
   if (kind === 'note_quad_random') {
-    const anchorPos = pickFrom(NON_ZERO_11, rand, avoidSet);
-    const anchorName = getCanonicalNoteName(anchorPos, notation);
-    const nodes = makeBlankNoteNodes(notation, [anchorPos]);
-    const pool = ALL_12.filter((p) => p !== anchorPos);
-    const picked = shuffle(pool, rand).slice(0, 4);
+    const firstPos = pickFrom(ALL_12, rand, avoidSet);
+    const restPool = ALL_12.filter((p) => p !== firstPos);
+    const picked = [firstPos, ...shuffle(restPool, rand).slice(0, 3)];
+    const nodes = makeBlankNoteNodes(notation);
     const steps = picked.map((p, idx) => {
       const nm = getCanonicalNoteName(p, notation);
       return {
@@ -418,18 +414,18 @@ export function instantiateQuiz(
     return {
       id: card.id,
       category,
-      primaryRootPos: anchorPos,
+      primaryRootPos: firstPos,
       answerSurface: 'circle',
-      eyebrow: 'BLANK CIRCLE · ROTATED ANCHOR',
-      promptHtml: `Anchored on <b>${anchorName}</b> · place 4 notes`,
+      eyebrow: 'BLANK CIRCLE · 4 NOTES',
+      promptHtml: `Place <b>4 random notes</b> on the Circle`,
       staff: null,
       fretboard: null,
       nodes,
       steps,
-      geometry: { type: 'polygon', positions: [anchorPos, ...picked] },
+      geometry: { type: 'polygon', positions: picked },
       doneCenterPrimary: '4 / 4',
-      doneCenterSub: `from ${anchorName}`,
-      explanation: `Clockwise = +5th, counter-clockwise = +4th from ${anchorName}.`
+      doneCenterSub: 'Locked in',
+      explanation: `${getCanonicalNoteName(0, notation)} is always 12h; clockwise = +5ths, CCW = +4ths.`
     };
   }
 
@@ -437,16 +433,16 @@ export function instantiateQuiz(
     const startPos = pickFrom(ALL_12, rand, avoidSet);
     const isFifths = rand() < 0.5;
     const stepDir = isFifths ? 1 : -1;
-    const anchorName = getCanonicalNoteName(startPos, notation);
-    const nodes = makeBlankNoteNodes(notation, [startPos]);
-    const seq = [1, 2, 3, 4, 5].map((k) => mod(startPos + k * stepDir, 12));
+    const startName = getCanonicalNoteName(startPos, notation);
+    const nodes = makeBlankNoteNodes(notation);
+    const seq = [0, 1, 2, 3, 4].map((k) => mod(startPos + k * stepDir, 12));
     const steps = seq.map((p, idx) => {
       const nm = getCanonicalNoteName(p, notation, !isFifths && p === 6);
       return {
         targetPos: p,
-        centerLabel: nm,
+        centerLabel: idx === 0 ? startName : isFifths ? '+5th' : '+4th',
         centerSub: `${idx + 1} / 5`,
-        stepChipLabel: nm,
+        stepChipLabel: idx === 0 ? startName : `+${idx}`,
         revealedPrimary: nm,
         revealedSub: '',
         midiToPlay: bassMidiForPos(p, 36)
@@ -460,25 +456,24 @@ export function instantiateQuiz(
       answerSurface: 'circle',
       eyebrow: 'BLANK CIRCLE · 5THS & 4THS',
       promptHtml: isFifths
-        ? `From <b>${anchorName}</b>, walk <b>5 steps CW in 5ths</b>`
-        : `From <b>${anchorName}</b>, walk <b>5 steps CCW in 4ths</b>`,
+        ? `Start on <b>${startName}</b> · walk <b>CW in 5ths</b> (5 notes)`
+        : `Start on <b>${startName}</b> · walk <b>CCW in 4ths</b> (5 notes)`,
       staff: null,
       fretboard: null,
       nodes,
       steps,
-      geometry: { type: 'walk', positions: [startPos, ...seq] },
+      geometry: { type: 'walk', positions: seq },
       doneCenterPrimary: '5 / 5',
       doneCenterSub: isFifths ? '+5ths CW' : '+4ths CCW',
       explanation: isFifths
-        ? `Walking clockwise in 5ths from ${anchorName}.`
-        : `Walking counter-clockwise in 4ths from ${anchorName}.`
+        ? `Walking clockwise in 5ths starting at ${startName}: ${steps.map((s) => s.revealedPrimary).join(' → ')}.`
+        : `Walking CCW in 4ths starting at ${startName}: ${steps.map((s) => s.revealedPrimary).join(' → ')}.`
     };
   }
 
   if (kind === 'note_sweep') {
     const { mode } = params;
-    const anchorPos = mode === 'all12' ? pickFrom(ALL_12, rand, avoidSet) : 0;
-    const nodes = makeBlankNoteNodes(notation, [anchorPos]);
+    const nodes = makeBlankNoteNodes(notation);
     let seq = [];
     let title = '';
     if (mode === 'sharps') {
@@ -488,9 +483,8 @@ export function instantiateQuiz(
       seq = shuffle([11, 10, 9, 8, 7, 6], rand);
       title = 'Place the <b>6 flat-side</b> notes';
     } else {
-      seq = shuffle(ALL_12.filter((p) => p !== anchorPos), rand);
-      const ancName = getCanonicalNoteName(anchorPos, notation);
-      title = `Anchored on <b>${ancName}</b> · fill all 12 notes`;
+      seq = shuffle(ALL_12, rand);
+      title = 'Fill <b>all 12 notes</b> around the Circle';
     }
     const preferFlat = mode === 'flats';
     const steps = seq.map((p, idx) => {
@@ -509,7 +503,7 @@ export function instantiateQuiz(
     return {
       id: card.id,
       category,
-      primaryRootPos: anchorPos,
+      primaryRootPos: seq[0],
       answerSurface: 'circle',
       eyebrow: 'FILL THE CIRCLE · NOTES',
       promptHtml: title,
@@ -517,10 +511,10 @@ export function instantiateQuiz(
       fretboard: null,
       nodes,
       steps,
-      geometry: { type: 'walk', positions: [anchorPos, ...seq] },
+      geometry: { type: 'walk', positions: seq },
       doneCenterPrimary: `${seq.length} / ${seq.length}`,
       doneCenterSub: 'Circle mapped',
-      explanation: 'Right half = sharps (+5ths CW), left half = flats (+4ths CCW).'
+      explanation: `${getCanonicalNoteName(0, notation)} is fixed at 12h · right = sharps (+5ths CW), left = flats (+4ths CCW).`
     };
   }
 
@@ -1152,7 +1146,7 @@ export function instantiateQuiz(
       polyPositions.push(sp.pos);
       chordMemberMap[sp.pos] = {
         mode: 'source',
-        primary: isBlind && sp.pos !== 0 ? '●' : formatSpelledNote(sp, notation),
+        primary: isBlind ? '●' : formatSpelledNote(sp, notation),
         secondary: '',
         subBadge: '',
         showEvenWhenBlind: true
@@ -1226,7 +1220,8 @@ export function instantiateQuiz(
     const bassText = formatSpelledNote(bassSpelled, notation);
     const slashSymbol = `${chordText}/${bassText}`;
 
-    const wheelRootPos = Math.floor(rand() * 12);
+    // `1` sits at `rootPos` — the chord root's true permanent home on the C-on-top Circle!
+    const wheelRootPos = rootPos;
     const iv = INTERVALS[bassDeg];
     const targetPos = mod(wheelRootPos + iv.circleOffset, 12);
     const nodes = makeLabeledDegreeNodes(wheelRootPos, null, isBlind);
@@ -2035,8 +2030,10 @@ export function instantiateQuiz(
     const tStr = rStr + sh.ds;
     const tFret = rFret + sh.df;
 
+    // Lock `1` on the Circle to the root fret's true permanent note position (`C` = 12h)!
     const iv = INTERVALS[sh.sym];
-    const wheelRootPos = Math.floor(rand() * 12);
+    const rootInfo = getBassFretInfo(rStr, rFret);
+    const wheelRootPos = rootInfo.pos;
     const targetPos = mod(wheelRootPos + iv.circleOffset, 12);
     const nodes = makeLabeledDegreeNodes(wheelRootPos, null, isBlind);
     const targetInfo = getBassFretInfo(tStr, tFret);
