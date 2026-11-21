@@ -207,14 +207,26 @@ export function getTheoryPages(notation = 'solfege') {
       `
     },
     {
-      title: 'Bass Neck ↔ Stage',
+      title: isSol ? 'Ré · Sol & Stage' : 'D · G & Stage',
       html: `
-        <div class="g-card g-compact-list">
-          <h3 class="g-heading">4-String Tuning IS the Circle</h3>
-          <div>Open strings <b>${n('Mi → La → Ré → Sol', 'E → A → D → G')}</b> sit at <b>4h → 3h → 2h → 1h</b>!</div>
-          <div>• <b>1 string higher, same fret</b> = +4th = <b>−1 step CCW</b>.</div>
-          <div>• <b>1 string lower, same fret</b> = +5th = <b>+1 step CW</b>.</div>
-          <div>• <b>Same note on next higher string</b> = <b>−5 frets</b> (except open/12th).</div>
+        <div class="g-card">
+          <h3 class="g-heading">${n('Ré & Sol', 'D & G')} Direct Anchors <span class="g-sub">(Kill E/A deduction!)</span></h3>
+          <table class="g-table">
+            <thead>
+              <tr><th>Fret</th><th>${n('Ré', 'D')} String</th><th>${n('Sol', 'G')} String (−1 CCW)</th><th>Circle</th></tr>
+            </thead>
+            <tbody>
+              <tr><th>f2</th><td><b>${n('Mi', 'E')}</b></td><td><b>${n('La', 'A')}</b></td><td>4h → 3h</td></tr>
+              <tr><th>f3</th><td class="cell-accent"><b>${n('Fa', 'F')}</b></td><td class="cell-accent"><b>${n('Si♭', 'B♭')}</b></td><td>11h → 10h</td></tr>
+              <tr><th>f4</th><td><b>${n('Fa♯', 'F♯')}</b></td><td><b>${n('Si', 'B')}</b></td><td>6h → 5h</td></tr>
+              <tr><th>f5</th><td class="cell-accent"><b>${n('Sol', 'G')}</b></td><td class="cell-accent"><b>${n('Do', 'C')}</b></td><td>1h → 12h</td></tr>
+              <tr><th>f6</th><td><b>${n('La♭', 'A♭')}</b></td><td><b>${n('Ré♭', 'D♭')}</b></td><td>8h → 7h</td></tr>
+              <tr><th>f7</th><td class="cell-accent"><b>${n('La', 'A')}</b></td><td class="cell-accent"><b>${n('Ré', 'D')}</b></td><td>3h → 2h</td></tr>
+              <tr><th>f8</th><td><b>${n('Si♭', 'B♭')}</b></td><td><b>${n('Mi♭', 'E♭')}</b></td><td>10h → 9h</td></tr>
+              <tr><th>f9</th><td class="cell-accent"><b>${n('Si', 'B')}</b></td><td class="cell-accent"><b>${n('Mi', 'E')}</b></td><td>5h → 4h</td></tr>
+              <tr><th>f10</th><td><b>${n('Do', 'C')}</b></td><td><b>${n('Fa', 'F')}</b></td><td>12h → 11h</td></tr>
+            </tbody>
+          </table>
         </div>
 
         <div class="g-card">

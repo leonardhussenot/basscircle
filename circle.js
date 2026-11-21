@@ -531,13 +531,15 @@ export function renderBassFretboard(
   {
     notation = 'solfege',
     singleDot = null,
-    twoDots = null, // { root: { stringIndex, fret }, target: { stringIndex, fret, revealedLabel? } }
+    twoDots = null,
+    lockedStrings = [],
     interactiveQuiz = null,
     activeMap = null,
     onTapFret = null
   } = {}
 ) {
   container.textContent = '';
+  const lockedSet = new Set(lockedStrings);
 
   const isTall = Boolean(interactiveQuiz);
   const width = 356;
@@ -641,23 +643,24 @@ export function renderBassFretboard(
     );
   }
 
-  // 4 Bass Strings + String Labels at left
+  // 4 Bass Strings + String Labels at left (dimming locked strings so D & G stand out!)
   for (const str of BASS_STRINGS) {
     const y = rowY[str.index];
+    const isLocked = lockedSet.has(str.index);
     const label = notation === 'letter' ? str.letter : str.solfege;
 
     const lblEl = svgEl('text', {
       x: isTall ? '14' : '16',
       y: String(y),
       class: 'fb-str-label',
+      opacity: isLocked ? '0.26' : '1',
       'text-anchor': 'middle',
       'dominant-baseline': 'central'
     });
     lblEl.textContent = label;
     svg.appendChild(lblEl);
 
-    if (isTall) {
-      // Subtle open-string ring at fret 0 so user sees open strings are tappable!
+    if (isTall && !isLocked) {
       svg.appendChild(
         svgEl('circle', {
           cx: String(nutX - 12),
@@ -675,6 +678,7 @@ export function renderBassFretboard(
         x2: String(endX),
         y2: String(y),
         'stroke-width': String(str.gauge),
+        opacity: isLocked ? '0.2' : '1',
         class: 'fb-string'
       })
     );
@@ -742,15 +746,17 @@ export function renderBassFretboard(
       })
     );
 
-    // Root '1' badge (warm sand fill + ink border)
+    // Root '1' (or '#1') badge
+    const rFound = Boolean(twoDots.root.revealedLabel);
     svg.appendChild(
       svgEl('circle', {
         cx: rX.toFixed(1),
         cy: String(rY),
         r: '7.6',
-        fill: '#F2E9D9',
-        stroke: '#1C1B19',
-        'stroke-width': '1.7'
+        class: rFound ? 'fb-dot-found' : null,
+        fill: rFound ? null : '#F2E9D9',
+        stroke: rFound ? null : '#1C1B19',
+        'stroke-width': rFound ? null : '1.7'
       })
     );
     svg.appendChild(
@@ -758,15 +764,15 @@ export function renderBassFretboard(
         svgEl('text', {
           x: rX.toFixed(1),
           y: String(rY),
-          class: 'fb-note-label',
+          class: rFound ? 'fb-dot-text' : 'fb-note-label',
           'text-anchor': 'middle',
           'dominant-baseline': 'central'
         }),
-        { textContent: '1' }
+        { textContent: twoDots.root.revealedLabel || twoDots.root.promptLabel || '1' }
       )
     );
 
-    // Target '?' dot
+    // Target '?' (or '#2') dot
     svg.appendChild(
       svgEl('circle', {
         cx: tX.toFixed(1),
@@ -792,7 +798,7 @@ export function renderBassFretboard(
           'text-anchor': 'middle',
           'dominant-baseline': 'central'
         }),
-        { textContent: twoDots.target.revealedLabel || '?' }
+        { textContent: twoDots.target.revealedLabel || twoDots.target.promptLabel || '?' }
       )
     );
   }
@@ -872,7 +878,8 @@ export function renderBassFretboard(
             fret: f,
             midi,
             pc,
-            pos: pitchClassToPos(pc)
+            pos: pitchClassToPos(pc),
+            isLocked: lockedSet.has(str.index)
           });
         });
         svg.appendChild(hitRect);

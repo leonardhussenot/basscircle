@@ -1,19 +1,15 @@
-// BassCircle v2 — Main Application Controller
+// BassCircle v4 — Procedural System-Mastery Controller + D & G Upper-Neck Focus
 
 import {
   HARMONIC_LENSES,
   INTERVALS,
-  mod,
   posToPitchClass,
   pitchClassToPos,
   getCanonicalNoteName,
   getBassFretInfo
 } from './theory.js';
 
-import {
-  getDefinitionById,
-  instantiateQuiz
-} from './quizzes.js';
+import { instantiateQuiz } from './quizzes.js';
 
 import {
   CircleView,
@@ -22,7 +18,7 @@ import {
   buildExplorerModel
 } from './circle.js';
 
-import { renderBassStaff, bassStaffStepToNote } from './staff.js';
+import { renderBassStaff } from './staff.js';
 
 import {
   reviewCard,
@@ -64,6 +60,7 @@ const views = {
 const btnMenuBlind = document.getElementById('btn-menu-blind');
 const btnMenuNotation = document.getElementById('btn-menu-notation');
 const btnMenuSound = document.getElementById('btn-menu-sound');
+const modeLabelHighstringsEl = document.getElementById('mode-label-highstrings');
 const deckCountEl = document.getElementById('deck-count');
 const miniWheelSvg = document.getElementById('mini-wheel-svg');
 const curveAreaEl = document.getElementById('curve-area');
@@ -132,8 +129,10 @@ let activeSessionCategory = null;
 let sessionQueue = [];
 let sessionIndex = 0;
 let sessionStats = { well: 0, approx: 0, not: 0 };
+let recentRoots = []; // Rolling anti-repeat root history (last 4 roots)
 
 let currentQuestionSeed = 1;
+let currentAvoidRoots = [];
 let currentSpec = null;
 let currentNodesState = [];
 let currentStepIndex = 0;
@@ -143,7 +142,7 @@ let isQuestionDone = false;
 let questionShownAt = 0;
 let autoAdvanceTimer = null;
 
-// Reverse Fretboard (Circle -> All 4 Strings) State
+// Interactive Fretboard Quiz State
 let foundStringsSet = new Set();
 let foundFretsList = [];
 let neckWrongCell = null;
@@ -209,6 +208,9 @@ function syncSettingsUI() {
   btnMenuNotation.textContent = isSol ? 'Do Ré Mi' : 'C D E';
   btnQuizNotation.textContent = isSol ? 'Do Ré Mi' : 'C D E';
   btnExploreNotation.textContent = isSol ? 'Do' : 'C';
+  if (modeLabelHighstringsEl) {
+    modeLabelHighstringsEl.textContent = isSol ? 'Ré · Sol' : 'D & G';
+  }
 
   const blindLabel = formatBlindModeLabel(settings.blindMode);
   for (const btn of [btnMenuBlind, btnQuizBlind]) {
@@ -239,7 +241,7 @@ async function cycleBlindMode() {
         ? 'Blind Wheel: only 12h anchor shown'
         : next === 'labels'
         ? 'Labels always visible on Circle'
-        : 'Auto: familiar drills hide labels automatically';
+        : 'Auto: familiar skills hide labels automatically';
     showMenuStatus(desc);
   } else if (activeView === 'quiz' && sessionQueue[sessionIndex]) {
     rerenderCurrentQuizSettings();
@@ -272,46 +274,42 @@ async function toggleSound() {
   }
 }
 
-// --- HOME MASTERY DASHBOARD ---
-
-function getCardCirclePositions(card) {
-  const def = getDefinitionById(card.id);
-  if (!def) return [];
-  const p = def.params || {};
-  if (typeof p.targetPos === 'number') return [mod(p.targetPos, 12)];
-  if (typeof p.anchorPos === 'number') return [mod(p.anchorPos, 12)];
-  if (typeof p.rootPos === 'number') return [mod(p.rootPos, 12)];
-  if (typeof p.keyPos === 'number') return [mod(p.keyPos, 12)];
-  if (typeof p.majorPos === 'number') return [mod(p.majorPos, 12)];
-  if (typeof p.minorPos === 'number') return [mod(p.minorPos, 12)];
-  if (typeof p.targetKeyPos === 'number') return [mod(p.targetKeyPos, 12)];
-  if (typeof p.step === 'number') {
-    return [bassStaffStepToNote(p.step, p.acc || 0).pos];
-  }
-  if (typeof p.stringIndex === 'number' && typeof p.fret === 'number') {
-    return [getBassFretInfo(p.stringIndex, p.fret).pos];
-  }
-  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-}
+// --- HOME SYSTEM-MASTERY DASHBOARD ---
 
 function renderMasteryDashboard(cards) {
   const total = cards.length;
   const now = Date.now();
   const practiced = cards.filter((c) => (c.reps || 0) > 0).length;
-  deckCountEl.textContent = `${practiced} / ${total}`;
+  deckCountEl.textContent = `${practiced} / ${total} skills`;
 
-  const sums = new Array(12).fill(0);
-  const counts = new Array(12).fill(0);
-  const scores = cards.map((c) => {
-    const s = (c.reps || 0) > 0 ? getMasteryScore(c, now) : 0;
-    for (const pos of getCardCirclePositions(c)) {
-      sums[pos] += s;
-      counts[pos] += 1;
-    }
-    return getMasteryScore(c, now);
+  // Map the 8 categories + overall progress smoothly across the 12-sector emblem
+  const categories = [
+    'notes',
+    'degrees',
+    'intervals',
+    'clef',
+    'chords',
+    'bass',
+    'fretboard',
+    'highstrings'
+  ];
+  const catAvg = categories.map((cat) => {
+    const sub = cards.filter((c) => c.category === cat);
+    if (!sub.length) return 0;
+    const sum = sub.reduce(
+      (acc, c) => acc + ((c.reps || 0) > 0 ? getMasteryScore(c, now) : 0),
+      0
+    );
+    return sum / sub.length;
   });
 
-  const sectorScores = sums.map((sum, idx) => (counts[idx] > 0 ? sum / counts[idx] : 0));
+  const sectorScores = Array.from({ length: 12 }, (_, pos) => {
+    const idxFloat = (pos / 12) * categories.length;
+    const i0 = Math.floor(idxFloat) % categories.length;
+    const i1 = (i0 + 1) % categories.length;
+    const frac = idxFloat - Math.floor(idxFloat);
+    return catAvg[i0] * (1 - frac) + catAvg[i1] * frac;
+  });
   renderMiniMasteryWheel(miniWheelSvg, sectorScores);
 
   if (total === 0) {
@@ -320,6 +318,7 @@ function renderMasteryDashboard(cards) {
     return;
   }
 
+  const scores = cards.map((c) => getMasteryScore(c, now));
   const xStart = 6;
   const xEnd = 234;
   const yBase = 68;
@@ -373,10 +372,10 @@ function renderStepChips() {
   if (!currentSpec) return;
 
   if (currentSpec.answerSurface === 'fretboard') {
-    currentSpec.steps.forEach((st, sIdx) => {
+    currentSpec.steps.forEach((st) => {
       const chip = document.createElement('span');
       chip.className = 'step-chip';
-      if (foundStringsSet.has(sIdx) || isQuestionDone) {
+      if (foundStringsSet.has(st.stringIndex) || isQuestionDone) {
         chip.classList.add('is-done');
       }
       chip.textContent = st.stepChipLabel;
@@ -437,12 +436,15 @@ function renderQuizMedia() {
     return;
   }
 
-  // 2. 4-String Bass Fretboard (singleDot, two-dot shape, all4, or sequential neck play)
+  // 2. 4-String Bass Fretboard (single, shape, D&G pair, all4/subset, or sequential neck play)
   if (currentSpec.fretboard) {
     quizMediaWrapEl.classList.remove('is-gone');
+    const lockedStrings = currentSpec.fretboard.lockedStrings || [];
+
     if (currentSpec.fretboard.mode === 'all4' || currentSpec.fretboard.mode === 'seq') {
       renderBassFretboard(quizMediaWrapEl, {
         notation: settings.notation,
+        lockedStrings,
         interactiveQuiz: {
           foundFrets: foundFretsList,
           wrongCell: neckWrongCell
@@ -452,9 +454,30 @@ function renderQuizMedia() {
             ? handleSeqNeckTap(cell)
             : handleReverseNeckTap(cell)
       });
+    } else if (currentSpec.fretboard.mode === 'pair') {
+      renderBassFretboard(quizMediaWrapEl, {
+        notation: settings.notation,
+        lockedStrings,
+        twoDots: {
+          root: {
+            ...currentSpec.fretboard.root,
+            revealedLabel:
+              currentStepIndex >= 1 || isQuestionDone
+                ? currentSpec.fretboard.root.doneLabel
+                : null
+          },
+          target: {
+            ...currentSpec.fretboard.target,
+            revealedLabel: isQuestionDone
+              ? currentSpec.fretboard.target.doneLabel
+              : null
+          }
+        }
+      });
     } else if (currentSpec.fretboard.mode === 'shape') {
       renderBassFretboard(quizMediaWrapEl, {
         notation: settings.notation,
+        lockedStrings,
         twoDots: {
           root: currentSpec.fretboard.root,
           target: {
@@ -466,6 +489,7 @@ function renderQuizMedia() {
     } else {
       renderBassFretboard(quizMediaWrapEl, {
         notation: settings.notation,
+        lockedStrings,
         singleDot: {
           stringIndex: currentSpec.fretboard.stringIndex,
           fret: currentSpec.fretboard.fret,
@@ -504,9 +528,17 @@ function loadCurrentQuizQuestion() {
   }
 
   currentQuestionSeed = Math.floor(Math.random() * 2147483640) + 1;
+  currentAvoidRoots = [...recentRoots];
   currentSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed, {
-    blindMode: settings.blindMode
+    blindMode: settings.blindMode,
+    avoidPositions: currentAvoidRoots
   });
+
+  if (typeof currentSpec.primaryRootPos === 'number') {
+    recentRoots.push(currentSpec.primaryRootPos);
+    if (recentRoots.length > 4) recentRoots.shift();
+  }
+
   currentNodesState = currentSpec.nodes.map((n) => ({ ...n }));
   currentStepIndex = 0;
   mistakesOnCurrent = 0;
@@ -528,8 +560,16 @@ function loadCurrentQuizQuestion() {
   quizCircle.setNodes(currentNodesState);
 
   if (currentSpec.answerSurface === 'fretboard') {
-    quizCircle.setHub('0 / 4', 'Tap 4 strings', { interactive: false, done: false });
-    quizLiveHintEl.textContent = 'Tap all 4 strings on the bass neck above';
+    const reqCount = (currentSpec.requiredStrings || [0, 1, 2, 3]).length;
+    quizCircle.setHub(
+      `0 / ${reqCount}`,
+      reqCount === 1 ? 'Tap string' : `Tap ${reqCount} strings`,
+      { interactive: false, done: false }
+    );
+    quizLiveHintEl.textContent =
+      reqCount < 4
+        ? 'Tap directly on the highlighted upper string(s)'
+        : 'Tap all 4 strings on the bass neck above';
   } else if (currentSpec.answerSurface === 'fretboard_seq') {
     const firstStep = currentSpec.steps[0];
     quizCircle.setHub(firstStep.centerLabel, firstStep.centerSub, {
@@ -551,14 +591,6 @@ function loadCurrentQuizQuestion() {
 
   quizFooterActiveEl.classList.remove('is-gone');
   quizFooterDoneEl.classList.add('is-gone');
-
-  if (currentSpec.fretboard?.mode === 'single') {
-    const info = getBassFretInfo(
-      currentSpec.fretboard.stringIndex,
-      currentSpec.fretboard.fret
-    );
-    playBassNote(info.midi, { duration: 0.52, gainScale: 0.85 });
-  }
 }
 
 function rerenderCurrentQuizSettings() {
@@ -566,11 +598,11 @@ function rerenderCurrentQuizSettings() {
   if (!card) return;
 
   const updatedSpec = instantiateQuiz(card, settings.notation, currentQuestionSeed, {
-    blindMode: settings.blindMode
+    blindMode: settings.blindMode,
+    avoidPositions: currentAvoidRoots
   });
   currentSpec = updatedSpec;
 
-  // Update labels inside foundFretsList when switching Do Ré Mi <-> C D E
   if (updatedSpec.answerSurface === 'fretboard') {
     foundFretsList = foundFretsList.map((it) => ({
       ...it,
@@ -600,11 +632,12 @@ function rerenderCurrentQuizSettings() {
         }
       }
     } else if (isQuestionDone && pos === updatedSpec.targetPos) {
+      const reqCount = (updatedSpec.requiredStrings || [0, 1, 2, 3]).length;
       return {
         ...baseNode,
         mode: 'correct',
         primary: updatedSpec.targetName,
-        subBadge: '4/4'
+        subBadge: `${reqCount}/${reqCount}`
       };
     }
     return { ...baseNode };
@@ -631,7 +664,8 @@ function rerenderCurrentQuizSettings() {
     });
     quizExplanationEl.textContent = updatedSpec.explanation;
   } else if (updatedSpec.answerSurface === 'fretboard') {
-    quizCircle.setHub(`${foundStringsSet.size} / 4`, 'Tap 4 strings', {
+    const reqCount = (updatedSpec.requiredStrings || [0, 1, 2, 3]).length;
+    quizCircle.setHub(`${foundStringsSet.size} / ${reqCount}`, 'Strings found', {
       interactive: false,
       done: false
     });
@@ -691,7 +725,11 @@ async function completeCurrentQuestion() {
   const currentCard = sessionQueue[sessionIndex];
   if (currentCard) {
     const updatedCard = reviewCard(currentCard, rating, Date.now());
-    sessionQueue[sessionIndex] = updatedCard;
+    for (let i = 0; i < sessionQueue.length; i++) {
+      if (sessionQueue[i].id === updatedCard.id) {
+        sessionQueue[i] = updatedCard;
+      }
+    }
     await saveCardProgress(updatedCard);
   }
 
@@ -704,13 +742,24 @@ async function completeCurrentQuestion() {
   }
 }
 
-function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
+function handleReverseNeckTap({ stringIndex, fret, midi, pc, isLocked }) {
   unlockAudio();
   if (!currentSpec || currentSpec.answerSurface !== 'fretboard') return;
   if (isQuestionDone) {
     advanceToNextQuestion();
     return;
   }
+
+  if (isLocked) {
+    quizLiveHintEl.textContent =
+      settings.notation === 'letter'
+        ? 'String locked — target the active D / G string directly!'
+        : 'String locked — target the active Ré / Sol string directly!';
+    return;
+  }
+
+  const reqStrings = currentSpec.requiredStrings || [0, 1, 2, 3];
+  const reqCount = reqStrings.length;
 
   if (pc === currentSpec.targetPc) {
     if (!foundStringsSet.has(stringIndex)) {
@@ -721,7 +770,6 @@ function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
         label: currentSpec.targetName
       });
     } else if (!foundFretsList.some((x) => x.stringIndex === stringIndex && x.fret === fret)) {
-      // User also tapped octave 0/12 on an already-found string
       foundFretsList.push({
         stringIndex,
         fret,
@@ -735,13 +783,13 @@ function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
     renderStepChips();
     renderQuizMedia();
 
-    if (foundStringsSet.size >= 4) {
+    if (foundStringsSet.size >= reqCount) {
       currentNodesState[currentSpec.targetPos] = {
         ...currentNodesState[currentSpec.targetPos],
         mode: 'correct',
         primary: currentSpec.targetName,
         secondary: '',
-        subBadge: '4/4'
+        subBadge: `${reqCount}/${reqCount}`
       };
       quizCircle.updateSingleNode(
         currentSpec.targetPos,
@@ -749,7 +797,7 @@ function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
       );
       completeCurrentQuestion();
     } else {
-      quizCircle.setHub(`${foundStringsSet.size} / 4`, 'Strings found', {
+      quizCircle.setHub(`${foundStringsSet.size} / ${reqCount}`, 'Strings found', {
         interactive: false,
         done: false
       });
@@ -773,11 +821,19 @@ function handleReverseNeckTap({ stringIndex, fret, midi, pc }) {
   }
 }
 
-function handleSeqNeckTap({ stringIndex, fret, midi, pc }) {
+function handleSeqNeckTap({ stringIndex, fret, midi, pc, isLocked }) {
   unlockAudio();
   if (!currentSpec || currentSpec.answerSurface !== 'fretboard_seq') return;
   if (isQuestionDone) {
     advanceToNextQuestion();
+    return;
+  }
+
+  if (isLocked) {
+    quizLiveHintEl.textContent =
+      settings.notation === 'letter'
+        ? 'E & A are locked — stay on the D & G strings!'
+        : 'Mi & La are locked — stay on the Ré & Sol strings!';
     return;
   }
 
@@ -881,7 +937,9 @@ function handleQuizCircleTap(pos) {
       completeCurrentQuestion();
     } else {
       renderStepChips();
-      if (currentSpec.staff) renderQuizMedia();
+      if (currentSpec.staff || currentSpec.fretboard?.mode === 'pair') {
+        renderQuizMedia();
+      }
       const nextStep = currentSpec.steps[currentStepIndex];
       quizCircle.setHub(nextStep.centerLabel, nextStep.centerSub, {
         interactive: false,
@@ -916,7 +974,8 @@ function handleRevealAnswer() {
   wasRevealed = true;
 
   if (currentSpec.answerSurface === 'fretboard') {
-    foundStringsSet = new Set([0, 1, 2, 3]);
+    const reqStrings = currentSpec.requiredStrings || [0, 1, 2, 3];
+    foundStringsSet = new Set(reqStrings);
     foundFretsList = currentSpec.canonicalFrets.map((cf) => ({
       stringIndex: cf.stringIndex,
       fret: cf.fret,
@@ -927,7 +986,7 @@ function handleRevealAnswer() {
       mode: 'correct',
       primary: currentSpec.targetName,
       secondary: '',
-      subBadge: '4/4'
+      subBadge: `${reqStrings.length}/${reqStrings.length}`
     };
     quizCircle.setNodes(currentNodesState);
     playBassSequence(
@@ -1019,6 +1078,7 @@ async function startQuizSession(category = null) {
   unlockAudio();
   allCards = await syncDeckAndGetAllCards();
   activeSessionCategory = category;
+  recentRoots = [];
 
   const sessionSize = category ? 12 : 16;
   sessionQueue = buildQuizSession(allCards, {
@@ -1244,7 +1304,7 @@ async function handleImportBackup(file) {
     settings = await getSettings();
     syncSettingsUI();
     await refreshMenu();
-    showMenuStatus(`Restored ${restored} ${restored === 1 ? 'drill' : 'drills'}`);
+    showMenuStatus(`Restored ${restored} ${restored === 1 ? 'skill' : 'skills'}`);
   } catch {
     showMenuStatus('Invalid backup file');
   } finally {

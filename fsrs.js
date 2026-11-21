@@ -188,7 +188,17 @@ export function buildQuizSession(
 
   if (category) {
     const filtered = allCards.filter((c) => c.category === category);
-    return shuffle(selectFromPool(filtered, sessionSize, now));
+    if (!filtered.length) return [];
+    const basePick = selectFromPool(filtered, sessionSize, now);
+    // If a focused category has fewer skill archetypes than sessionSize (e.g. 10 skills for a 12-question drill),
+    // top up with extra due/weakest skills — each one spawns a fresh random root/note!
+    const extraPool = shuffle(filtered);
+    let idx = 0;
+    while (basePick.length < sessionSize) {
+      basePick.push(extraPool[idx % extraPool.length]);
+      idx += 1;
+    }
+    return shuffle(basePick);
   }
 
   const categories = [
@@ -199,7 +209,7 @@ export function buildQuizSession(
     'chords',
     'bass',
     'fretboard',
-    'neckplay'
+    'highstrings'
   ];
 
   const perCatBase = Math.floor(sessionSize / categories.length);
